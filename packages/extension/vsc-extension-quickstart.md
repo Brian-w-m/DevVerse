@@ -1,5 +1,9 @@
 # Welcome to your VS Code Extension
 
+## For development
+
+* Press `Shift+P` and run Debug: Start Debugging with the `extension.ts` open
+
 ## What's in the folder
 
 * This folder contains all of the files necessary for your extension.
