@@ -1,0 +1,46 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  dynamodb:
+    image: amazon/dynamodb-local
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    volumes:
+      - ./dynamodb-data:/data
+    healthcheck:
+      test: ["CMD", "timeout", "1", "bash", "-c", ":> /dev/tcp/localhost/8000"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  dynamodb-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      dynamodb:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=ap-southeast-2
+      - AWS_REGION=ap-southeast-2
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      echo 'Waiting for DynamoDB to be ready...';
+      sleep 2;
+      aws dynamodb create-table --table-name Users --attribute-definitions AttributeName=ID,AttributeType=S --key-schema AttributeName=ID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --endpoint-url http://dynamodb:8000 --region ap-southeast-2 || echo 'Table Users may already exist';
+      echo 'DynamoDB tables initialized!';
+      "
+    networks:
+      - default
+

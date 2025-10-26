@@ -1,3 +1,4 @@
+.env
 out/
 .vscode/
 node_modules/
