@@ -1,6 +1,34 @@
+# Environment files
 .env
-out/
+.env.local
+
+# VS Code
 .vscode/
+
+# Node modules
 node_modules/
 
+# Build outputs
+out/
 .aws-sam/
+
+# Backend Go build artifacts
+backend/bin/
+backend/tmp/
+backend/*.exe
+backend/build-errors.log
+
+# Frontend build artifacts
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# IDE
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# DynamoDB data
+dynamodb-data/
