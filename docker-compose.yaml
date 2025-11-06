@@ -1,20 +1,51 @@
 services:
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: frontend
     ports:
-      - "${FRONTEND_PORT}:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
     volumes:
+      # Mount source code for hot reload
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/src:/app/src
+      - ./backend/go.mod:/app/go.mod
+      - ./backend/go.sum:/app/go.sum
+      # Exclude these from volume mounts to avoid conflicts
+      - /app/tmp
+      - /app/bin
+    restart: unless-stopped
 
   dynamodb:
     image: amazon/dynamodb-local
+    container_name: dynamodb
     ports:
       - "8000:8000"
     command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
     volumes:
+      # Persist DynamoDB data
       - ./dynamodb-data:/data
     healthcheck:
       test: ["CMD", "timeout", "1", "bash", "-c", ":> /dev/tcp/localhost/8000"]
@@ -22,9 +53,11 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+    restart: unless-stopped
 
   dynamodb-init:
     image: amazon/aws-cli:latest
+    container_name: dynamodb-init
     depends_on:
       dynamodb:
         condition: service_healthy

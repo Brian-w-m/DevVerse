@@ -1,0 +1,19 @@
+# Build artifacts
+bin/
+tmp/
+*.exe
+
+# Air logs
+build-errors.log
+
+# Environment files
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
