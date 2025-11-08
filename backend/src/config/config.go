@@ -6,8 +6,6 @@ import (
 )
 
 type Config struct {
-	AppName  string
-	AppEnv   string
 	Port     int
 	LogLevel string
 }
@@ -30,8 +28,6 @@ func getEnvInt(key string, def int) int {
 
 func Load() Config {
 	return Config{
-		AppName:  getEnv("APP_NAME", DefaultAppName),
-		AppEnv:   getEnv("APP_ENV", DefaultAppEnv),
 		Port:     getEnvInt("PORT", DefaultPort),
 		LogLevel: getEnv("LOG_LEVEL", DefaultLogLevel),
 	}

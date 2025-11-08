@@ -22,7 +22,7 @@ func main() {
 
 	// Setup logger
 	logger := utils.NewLogger(cfg.LogLevel)
-	logger.Infof("starting %s in %s mode", cfg.AppName, cfg.AppEnv)
+	logger.Info("starting server")
 
 	// Router
 	r := mux.NewRouter()
