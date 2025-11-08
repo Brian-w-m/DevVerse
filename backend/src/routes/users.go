@@ -3,26 +3,26 @@ package routes
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/brian/devverse-backend/src/services"
-	"github.com/brian/devverse-backend/src/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/Brian-w-m/DevVerse/backend/src/services"
+	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
-func registerUsers(r *mux.Router, logger *utils.Logger) {
+func registerUsers(r *gin.Engine, logger *utils.Logger) {
 	userService := services.NewUserService()
 
-	r.HandleFunc("/users", func(w http.ResponseWriter, _ *http.Request) {
+	r.GET("/users", func(c *gin.Context) {
 		users := userService.ListUsers()
-		utils.JSON(w, http.StatusOK, users)
-	}).Methods(http.MethodGet)
+		c.JSON(http.StatusOK, users)
+	})
 
-	r.HandleFunc("/users/{id}", func(w http.ResponseWriter, req *http.Request) {
-		id := mux.Vars(req)["id"]
+	r.GET("/users/:id", func(c *gin.Context) {
+		id := c.Param("id")
 		user, found := userService.GetUserByID(id)
 		if !found {
-			utils.JSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		utils.JSON(w, http.StatusOK, user)
-	}).Methods(http.MethodGet)
+		c.JSON(http.StatusOK, user)
+	})
 }

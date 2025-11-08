@@ -3,12 +3,12 @@ package routes
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/brian/devverse-backend/src/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
-func registerHealth(r *mux.Router, logger *utils.Logger) {
-	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		utils.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}).Methods(http.MethodGet)
+func registerHealth(r *gin.Engine, logger *utils.Logger) {
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 }

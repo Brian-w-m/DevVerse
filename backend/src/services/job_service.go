@@ -1,6 +1,6 @@
 package services
 
-import "github.com/brian/devverse-backend/src/models"
+import "github.com/Brian-w-m/DevVerse/backend/src/models"
 
 type JobService struct{}
 

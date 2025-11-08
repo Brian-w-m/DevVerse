@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 
-	"github.com/brian/devverse-backend/src/config"
-	"github.com/brian/devverse-backend/src/routes"
-	"github.com/brian/devverse-backend/src/utils"
+	"github.com/Brian-w-m/DevVerse/backend/src/config"
+	"github.com/Brian-w-m/DevVerse/backend/src/routes"
+	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
 func main() {
@@ -24,8 +24,14 @@ func main() {
 	logger := utils.NewLogger(cfg.LogLevel)
 	logger.Info("starting server")
 
-	// Router
-	r := mux.NewRouter()
+	// Set Gin mode
+	gin.SetMode(gin.ReleaseMode)
+
+	// Create Gin router
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	// Register routes
 	routes.Register(r, logger)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)

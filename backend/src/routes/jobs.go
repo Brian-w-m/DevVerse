@@ -3,16 +3,16 @@ package routes
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/brian/devverse-backend/src/services"
-	"github.com/brian/devverse-backend/src/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/Brian-w-m/DevVerse/backend/src/services"
+	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
-func registerJobs(r *mux.Router, logger *utils.Logger) {
+func registerJobs(r *gin.Engine, logger *utils.Logger) {
 	jobService := services.NewJobService()
 
-	r.HandleFunc("/jobs", func(w http.ResponseWriter, _ *http.Request) {
+	r.GET("/jobs", func(c *gin.Context) {
 		jobs := jobService.ListJobs()
-		utils.JSON(w, http.StatusOK, jobs)
-	}).Methods(http.MethodGet)
+		c.JSON(http.StatusOK, jobs)
+	})
 }

@@ -1,12 +1,12 @@
 package routes
 
 import (
-	"github.com/gorilla/mux"
-	"github.com/brian/devverse-backend/src/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
 // Register wires all route groups
-func Register(r *mux.Router, logger *utils.Logger) {
+func Register(r *gin.Engine, logger *utils.Logger) {
 	registerHealth(r, logger)
 	registerUsers(r, logger)
 	registerJobs(r, logger)
