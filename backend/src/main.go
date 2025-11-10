@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,18 +12,27 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Brian-w-m/DevVerse/backend/src/config"
+	"github.com/Brian-w-m/DevVerse/backend/src/appconfig"
+	"github.com/Brian-w-m/DevVerse/backend/src/database"
 	"github.com/Brian-w-m/DevVerse/backend/src/routes"
 	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
 func main() {
 	// Load config
-	cfg := config.Load()
+	cfg := appconfig.Load()
 
 	// Setup logger
 	logger := utils.NewLogger(cfg.LogLevel)
 	logger.Info("starting server")
+
+	// Initialise DynamoDB client
+	dynamodbClient, err := database.NewDynamoDBClient(cfg)
+	if err != nil {
+		log.Fatalf("failed to initialise DynamoDB client: %v", err)
+	}
+	logger.Infof("DynamoDB client initialised (region: %s, endpoint: %s, table: %s)",
+		cfg.AWSRegion, cfg.DynamoDBEndpoint, cfg.DynamoDBTable)
 
 	// Set Gin mode
 	gin.SetMode(gin.ReleaseMode)
@@ -32,7 +42,7 @@ func main() {
 	r.Use(gin.Recovery())
 
 	// Register routes
-	routes.Register(r, logger)
+	routes.Register(r, dynamodbClient, cfg, logger)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 

@@ -29,13 +29,13 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mount source code for hot reload
       - ./backend/src:/app/src
       - ./backend/go.mod:/app/go.mod
       - ./backend/go.sum:/app/go.sum
-      # Exclude these from volume mounts to avoid conflicts
       - /app/tmp
       - /app/bin
+    depends_on:
+      - dynamodb
     restart: unless-stopped
 
   dynamodb:
