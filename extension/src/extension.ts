@@ -56,55 +56,64 @@ export async function activate(context: vscode.ExtensionContext) {
 			// Store backend JWT securely for subsequent requests
 			if (data?.token) {
 				await context.secrets.store('devverse.jwt', data.token);
+				await context.secrets.store('devverse.userId', data.user.id);
 			}
 
 			console.log('Backend auth success:', data.user);
 			vscode.window.showInformationMessage(`Backend auth OK for ${data.user?.email || data.user?.name || session.account.label}`);
 
-			// Optional: authenticated smoke test
-			try {
-				const jwt = await context.secrets.get('devverse.jwt');
-				if (jwt) {
-					await fetch(`${backendUrlFromEnv}/users`, {
-						method: 'GET',
-						headers: { 'Authorization': `Bearer ${jwt}` }
-					});
-				}
-			} catch { /* ignore */ }
 		} catch (e: any) {
 			console.error('Backend auth failed', e);
 			vscode.window.showErrorMessage(`Backend auth failed: ${e?.message || String(e)}`);
 		}
-	}
 
-	// Add debouncing for text changes
-	let changeTimer: NodeJS.Timeout | undefined;
-	let changeCounter = 0;
+		// Add debouncing for text changes
+		let changeTimer: NodeJS.Timeout | undefined;
+		let changeCounter = 0;
 
-	const onchangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
-		if (event.contentChanges.length === 0) {
-			return;
-		}
+		const onchangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
+			if (event.contentChanges.length === 0) {
+				return;
+			}
 
-		if (changeTimer) {
-			clearTimeout(changeTimer);
-		};
+			if (changeTimer) {
+				clearTimeout(changeTimer);
+			};
 
-		changeCounter += event.contentChanges.length;
+			changeCounter += event.contentChanges.length;
 
-		changeTimer = setTimeout(() => {
-			const changes = event.contentChanges.map(change => ({
-				addedText: change.text,
-				position: `line ${change.range.start.line}, char ${change.range.start.character}`,
-				length: change.rangeLength
-			}));
+			changeTimer = setTimeout(async () => {
+				const changes = event.contentChanges.map(change => ({
+					addedText: change.text,
+					position: `line ${change.range.start.line}, char ${change.range.start.character}`,
+					length: change.rangeLength
+				}));
+				
+				vscode.window.showInformationMessage(`Total num changes: ${changeCounter}. Changes: ${JSON.stringify(changes)}.`);
+
+				try {
+					const jwt = await context.secrets.get('devverse.jwt');
+					const userId = await context.secrets.get('devverse.userId');
+					if (!jwt || !userId) return;
+
+					await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/score/add`, {
+						method: 'PATCH',
+						headers: { 
+							'Content-Type': 'application/json',
+							'Authorization': `Bearer ${jwt}`
+						},
+						body: JSON.stringify( { increment: changeCounter }),
+					});
+				} catch (e: any) {
+					console.error('Add score failed', e);
+					vscode.window.showErrorMessage(`Add score failed: ${e?.message || String(e)}`);
+				}
+			}, 500);
 			
-			vscode.window.showInformationMessage(`Total num changes: ${changeCounter}. Changes: ${JSON.stringify(changes)}`);
-		}, 500);
-		
-	});
+		});
 
-	context.subscriptions.push(onchangeDisposable);
+		context.subscriptions.push(onchangeDisposable);
+	}
 }
 
 // This method is called when your extension is deactivated
