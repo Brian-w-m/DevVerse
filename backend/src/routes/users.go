@@ -11,7 +11,7 @@ import (
 	"github.com/Brian-w-m/DevVerse/backend/src/utils"
 )
 
-func registerUsers(r *gin.Engine, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
+func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
 	userService := services.NewUserService(dynamodbClient, cfg.DynamoDBTable)
 
 	r.GET("/users", func(c *gin.Context) {

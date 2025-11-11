@@ -169,6 +169,57 @@ func (s *UserService) AddUserScore(ctx context.Context, id string, increment int
 	return nil
 }
 
+// CreateOrUpdateUserByGitHub creates or updates a user using GitHub ID as the primary ID
+func (s *UserService) CreateOrUpdateUserByGitHub(ctx context.Context, githubID string, name, email string) (*models.User, error) {
+	// Check if user exists
+	user, err := s.GetUserByID(ctx, githubID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user != nil {
+		// Update existing user (name and email might have changed)
+		user.Name = name
+		user.Email = email
+		item, err := attributevalue.MarshalMap(user)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal user: %w", err)
+		}
+
+		_, err = s.dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(s.table),
+			Item:      item,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update user: %w", err)
+		}
+		return user, nil
+	}
+
+	// Create new user with GitHub ID as the ID
+	newUser := models.User{
+		ID:    githubID, // Use GitHub ID directly as the primary ID
+		Name:  name,
+		Email: email,
+		Score: 0,
+	}
+
+	item, err := attributevalue.MarshalMap(newUser)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal user: %w", err)
+	}
+
+	_, err = s.dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(s.table),
+		Item:      item,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return &newUser, nil
+}
+
 func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"ID": id,

@@ -11,6 +11,7 @@ type Config struct {
 	AWSRegion        string
 	DynamoDBEndpoint string
 	DynamoDBTable    string
+	JWTSecret        string
 }
 
 func getEnv(key, def string) string {
@@ -36,6 +37,7 @@ func Load() Config {
 		AWSRegion:        getEnv("AWS_REGION", DefaultAWSRegion),
 		DynamoDBEndpoint: getEnv("DYNAMODB_ENDPOINT", ""),
 		DynamoDBTable:    getEnv("DYNAMODB_TABLE", DefaultDynamoDBTable),
+		JWTSecret:        getEnv("JWT_SECRET", ""),
 	}
 }
 

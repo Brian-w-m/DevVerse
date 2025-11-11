@@ -16,6 +16,13 @@
   "contributes": {
     "commands": []
   },
+  "capabilities": {
+    "authentication": {
+      "github": {
+        "scopes": ["read:user", "user:email"]
+      }
+    }
+  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
@@ -23,6 +30,9 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",

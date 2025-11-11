@@ -10,6 +10,10 @@ import (
 // Register wires all route groups
 func Register(r *gin.Engine, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
 	registerHealth(r, dynamodbClient, cfg, logger)
-	registerUsers(r, dynamodbClient, cfg, logger)
+	registerAuth(r, dynamodbClient, cfg, logger)
+	// Protect user routes with JWT
+	authGroup := r.Group("/")
+	authGroup.Use(utils.JWTAuth(cfg.JWTSecret))
+	registerUsers(authGroup, dynamodbClient, cfg, logger)
 	registerJobs(r, logger)
 }
