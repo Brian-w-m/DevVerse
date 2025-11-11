@@ -115,6 +115,60 @@ func (s *UserService) UpdateUser(ctx context.Context, user models.User) error {
 	return nil
 }
 
+func (s *UserService) UpdateUserScore(ctx context.Context, id string, score int) error {
+	key, err := attributevalue.MarshalMap(map[string]string{
+		"ID": id,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal key: %w", err)
+	}
+
+	updateExpr := "SET #score = :score"
+	_, err = s.dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: key,
+		UpdateExpression: aws.String(updateExpr),
+		ExpressionAttributeNames: map[string]string{
+			"#score": "Score",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":score": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", score)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update user score: %w", err)
+	}
+
+	return nil
+}
+
+func (s *UserService) AddUserScore(ctx context.Context, id string, increment int) error {
+	key, err := attributevalue.MarshalMap(map[string]string{
+		"ID": id,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal key: %w", err)
+	}
+
+	updateExpr := "ADD #score :increment"
+	_, err = s.dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: key,
+		UpdateExpression: aws.String(updateExpr),
+		ExpressionAttributeNames: map[string]string{
+			"#score": "Score",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":increment": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", increment)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add user score: %w", err)
+	}
+
+	return nil
+}
+
 func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"ID": id,

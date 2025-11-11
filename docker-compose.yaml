@@ -58,14 +58,11 @@ services:
   dynamodb-init:
     image: amazon/aws-cli:latest
     container_name: dynamodb-init
+    env_file:
+      - .env
     depends_on:
       dynamodb:
         condition: service_healthy
-    environment:
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_DEFAULT_REGION=ap-southeast-2
-      - AWS_REGION=ap-southeast-2
     entrypoint: /bin/sh
     command: >
       -c "

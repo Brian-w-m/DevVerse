@@ -73,6 +73,80 @@ func registerUsers(r *gin.Engine, dynamodbClient *dynamodb.Client, cfg appconfig
 		c.JSON(http.StatusOK, user)
 	})
 
+	r.PATCH("/users/:id/score", func(c *gin.Context) {
+		id := c.Param("id")
+
+		user, err := userService.GetUserByID(c.Request.Context(), id)
+		if err != nil {
+			logger.Errorf("failed to get user: %v", err)
+			return
+		}
+		if user == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+
+		var updateReq struct {
+			Score int `json:"score" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&updateReq); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := userService.UpdateUserScore(c.Request.Context(), id, updateReq.Score); err != nil {
+			logger.Errorf("failed to update user score: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user score"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"id":    id,
+			"score": updateReq.Score,
+		})
+	})
+
+	r.PATCH("/users/:id/score/add", func(c *gin.Context) {
+		id := c.Param("id")
+
+		user, err := userService.GetUserByID(c.Request.Context(), id)
+		if err != nil {
+			logger.Errorf("failed to get user: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+			return
+		}
+		if user == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+
+		var addReq struct {
+			Increment int `json:"increment" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&addReq); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := userService.AddUserScore(c.Request.Context(), id, addReq.Increment); err != nil {
+			logger.Errorf("failed to add user score: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add user score"})
+			return
+		}
+
+		updatedUser, err := userService.GetUserByID(c.Request.Context(), id)
+		if err != nil {
+			logger.Errorf("failed to get updated user: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get updated user"})
+			return
+		}
+		
+		c.JSON(http.StatusOK, gin.H{
+			"id":    id,
+			"score": updatedUser.Score,
+		})
+	})
+
 	r.DELETE("/users/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		if err := userService.DeleteUser(c.Request.Context(), id); err != nil {
