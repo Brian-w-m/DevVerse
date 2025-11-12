@@ -20,25 +20,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "devverse" is now active!');
 
-	// Example of registering a command
-	// const disposable = vscode.commands.registerCommand('devverse.helloWorld', () => {
-	// 	// The code you place here will be executed every time your command is executed
-	// 	// Display a message box to the user
-	// 	vscode.window.showInformationMessage('Hello World from DevVerse!');
-	// });
+	// Determine backend URL from env
+	const backendUrlFromEnv = process.env.BACKEND_URL || 'http://localhost:8080';
 
-	const session = await vscode.authentication.getSession(
-		'github',
-		['read:user', 'user:email'],
-		{ createIfNone: true }
-	);
+	// Create status bar item for login status
+	const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	statusBarItem.command = 'devverse.login';
+	statusBarItem.show();
+	context.subscriptions.push(statusBarItem);
 
-	if (session) {
-		vscode.window.showInformationMessage(`Logged in as ${session.account.label}`);
-
-		// Determine backend URL from env
-		const backendUrlFromEnv = process.env.BACKEND_URL;
-
+	// Function to authenticate with backend
+	async function authenticateWithBackend(session: vscode.AuthenticationSession) {
 		try {
 			const res = await fetch(`${backendUrlFromEnv}/auth/github`, {
 				method: 'POST',
@@ -59,61 +51,112 @@ export async function activate(context: vscode.ExtensionContext) {
 				await context.secrets.store('devverse.userId', data.user.id);
 			}
 
+			statusBarItem.text = `$(check) DevVerse: ${data.user?.name || session.account.label}`;
+			statusBarItem.tooltip = `Logged in as ${data.user?.email || session.account.label}`;
 			console.log('Backend auth success:', data.user);
-			vscode.window.showInformationMessage(`Backend auth OK for ${data.user?.email || data.user?.name || session.account.label}`);
-
+			return true;
 		} catch (e: any) {
 			console.error('Backend auth failed', e);
-			vscode.window.showErrorMessage(`Backend auth failed: ${e?.message || String(e)}`);
+			statusBarItem.text = '$(error) DevVerse: Auth Failed';
+			statusBarItem.tooltip = `Authentication failed: ${e?.message || String(e)}`;
+			return false;
+		}
+	}
+
+	// Function to check authentication status silently
+	async function checkAuthStatus() {
+		// Check silently without forcing login
+		const session = await vscode.authentication.getSession(
+			'github',
+			['read:user', 'user:email'],
+			{ createIfNone: false }
+		);
+
+		if (session) {
+			// Check if we have a valid JWT
+			const jwt = await context.secrets.get('devverse.jwt');
+			if (jwt) {
+				statusBarItem.text = `$(check) DevVerse: ${session.account.label}`;
+				statusBarItem.tooltip = `Logged in as ${session.account.label}`;
+				return true;
+			} else {
+				// Have GitHub session but no backend JWT, authenticate silently
+				statusBarItem.text = '$(sync~spin) DevVerse: Connecting...';
+				await authenticateWithBackend(session);
+			}
+		} else {
+			statusBarItem.text = '$(sign-in) DevVerse: Not Logged In';
+			statusBarItem.tooltip = 'Click to log in with GitHub';
+		}
+		return false;
+	}
+
+	// Command to login explicitly
+	const loginCommand = vscode.commands.registerCommand('devverse.login', async () => {
+		try {
+			statusBarItem.text = '$(sync~spin) DevVerse: Logging in...';
+			const session = await vscode.authentication.getSession(
+				'github',
+				['read:user', 'user:email'],
+				{ createIfNone: true }
+			);
+
+			if (session) {
+				await authenticateWithBackend(session);
+			}
+		} catch (e: any) {
+			statusBarItem.text = '$(error) DevVerse: Login Failed';
+			vscode.window.showErrorMessage(`Login failed: ${e?.message || String(e)}`);
+		}
+	});
+	context.subscriptions.push(loginCommand);
+
+	// Check auth status on activation (silently)
+	checkAuthStatus();
+
+	// Add debouncing for text changes
+	let changeTimer: NodeJS.Timeout | undefined;
+	let pendingCount = 0;
+
+	const onchangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
+		if (event.contentChanges.length === 0) {
+			return;
 		}
 
-		// Add debouncing for text changes
-		let changeTimer: NodeJS.Timeout | undefined;
-		let changeCounter = 0;
+		if (changeTimer) {
+			clearTimeout(changeTimer);
+		};
 
-		const onchangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
-			if (event.contentChanges.length === 0) {
-				return;
+		// accumulate changes within the debounce window
+		pendingCount += event.contentChanges.length;
+
+		changeTimer = setTimeout(async () => {
+			// capture and reset the batch count
+			const toSend = pendingCount;
+			pendingCount = 0;
+
+			try {
+				const jwt = await context.secrets.get('devverse.jwt');
+				const userId = await context.secrets.get('devverse.userId');
+				if (!jwt || !userId) return;
+
+				await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/score/add`, {
+					method: 'PATCH',
+					headers: { 
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${jwt}`
+					},
+					body: JSON.stringify({ increment: toSend }),
+				});
+			} catch (e: any) {
+				console.error('Add score failed', e);
+				vscode.window.showErrorMessage(`Add score failed: ${e?.message || String(e)}`);
 			}
+		}, 500);
+		
+	});
 
-			if (changeTimer) {
-				clearTimeout(changeTimer);
-			};
-
-			changeCounter += event.contentChanges.length;
-
-			changeTimer = setTimeout(async () => {
-				const changes = event.contentChanges.map(change => ({
-					addedText: change.text,
-					position: `line ${change.range.start.line}, char ${change.range.start.character}`,
-					length: change.rangeLength
-				}));
-				
-				vscode.window.showInformationMessage(`Total num changes: ${changeCounter}. Changes: ${JSON.stringify(changes)}.`);
-
-				try {
-					const jwt = await context.secrets.get('devverse.jwt');
-					const userId = await context.secrets.get('devverse.userId');
-					if (!jwt || !userId) return;
-
-					await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/score/add`, {
-						method: 'PATCH',
-						headers: { 
-							'Content-Type': 'application/json',
-							'Authorization': `Bearer ${jwt}`
-						},
-						body: JSON.stringify( { increment: changeCounter }),
-					});
-				} catch (e: any) {
-					console.error('Add score failed', e);
-					vscode.window.showErrorMessage(`Add score failed: ${e?.message || String(e)}`);
-				}
-			}, 500);
-			
-		});
-
-		context.subscriptions.push(onchangeDisposable);
-	}
+	context.subscriptions.push(onchangeDisposable);
 }
 
 // This method is called when your extension is deactivated

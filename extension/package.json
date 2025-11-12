@@ -14,7 +14,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": []
+    "commands": [
+      {
+        "command": "devverse.login",
+        "title": "DevVerse: Login with GitHub"
+      }
+    ]
   },
   "capabilities": {
     "authentication": {
