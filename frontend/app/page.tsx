@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Flame, TrendingUp, Trophy, Zap } from 'lucide-react';
+import { Code, MessageCircle, X, Zap, Award, Bolt } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<Array<{ type: 'user' | 'bot'; text: string }>>([
+    { type: 'bot', text: 'Hey there! 👋 Ready to track your code journey?' }
+  ]);
 
   useEffect(() => {
     // Auto-login with mock user for development
@@ -18,260 +22,174 @@ export default function Home() {
     setIsLoggedIn(true);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('devverse.jwt');
-    localStorage.removeItem('devverse.userId');
-    setIsLoggedIn(false);
-  };
-
   const goToDashboard = () => {
     router.push('/dashboard');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 overflow-hidden">
-      {/* Animated background gradient */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"></div>
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col">
       {/* Navigation */}
-      <nav className="relative z-10 border-b border-slate-800/50 backdrop-blur-sm sticky top-0">
+      <nav className="fixed top-0 left-0 right-0 z-40 backdrop-blur-md bg-slate-950/80 border-b border-slate-800">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-              <Flame className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
+              <Code className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-amber-300 to-amber-400 bg-clip-text text-transparent">
-              DevVerse
-            </span>
+            <span className="text-lg font-black text-white">DevVerse</span>
           </div>
-          <div className="flex items-center gap-4">
-            <a
-              href="https://github.com/Brian-w-m/DevVerse"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-300 hover:text-white transition-colors text-sm font-medium"
-            >
-              GitHub
-            </a>
+          <div className="flex items-center gap-6">
+            <a href="https://github.com/Brian-w-m/DevVerse" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">GitHub</a>
             {isLoggedIn && (
-              <button
-                onClick={handleLogout}
-                className="text-slate-300 hover:text-white transition-colors text-sm font-medium"
-              >
-                Logout
-              </button>
+              <button onClick={goToDashboard} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all text-sm font-medium">Dashboard</button>
             )}
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative z-10 mx-auto max-w-7xl px-6 py-20 sm:py-32">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Content */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 w-fit">
-                <Zap className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-semibold text-amber-300">Real-time Activity Tracking</span>
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center px-6 pt-20 pb-6">
+        <div className="w-full max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left: Content */}
+            <div className="space-y-8">
+              {/* Tag */}
+              <div className="inline-block">
+                <span className="px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700 text-slate-300 text-xs font-semibold tracking-widest">BUILD YOUR LEGEND</span>
               </div>
-              
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
-                <span className="bg-gradient-to-r from-white via-amber-100 to-amber-200 bg-clip-text text-transparent">
-                  Visualize
-                </span>
-                <br />
-                <span className="bg-gradient-to-r from-amber-300 to-amber-400 bg-clip-text text-transparent">
-                  Your Code
-                </span>
-              </h1>
-              
-              <p className="text-lg text-slate-400 max-w-lg leading-relaxed">
-                Track every keystroke, celebrate your streaks, and compete with developers worldwide. Your coding activity deserves to be seen.
-              </p>
-            </div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              {isLoggedIn ? (
-                <>
-                  <button
-                    onClick={goToDashboard}
-                    className="px-8 py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold rounded-lg hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105"
+              {/* Title */}
+              <h1 className="text-5xl lg:text-6xl font-black tracking-tight leading-tight text-white">
+                Master Your
+                <br />
+                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">Code Journey</span>
+              </h1>
+
+              {/* Description */}
+              <p className="text-lg text-slate-400 leading-relaxed">
+                Track every keystroke. Compete globally. Build unstoppable streaks. DevVerse is your precision-engineered platform for developer excellence.
+              </p>
+
+              {/* Features Grid */}
+              <div className="grid md:grid-cols-3 gap-4 py-6">
+                <div className="flex items-center gap-3">
+                  <Bolt className="w-5 h-5 text-blue-400" />
+                  <span className="text-sm text-slate-300">Real-time Tracking</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Award className="w-5 h-5 text-purple-400" />
+                  <span className="text-sm text-slate-300">Global Leaderboard</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Zap className="w-5 h-5 text-pink-400" />
+                  <span className="text-sm text-slate-300">Streak Mastery</span>
+                </div>
+              </div>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-wrap gap-4 pt-4">
+                {isLoggedIn ? (
+                  <button 
+                    onClick={goToDashboard} 
+                    className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-purple-500/40 transition-all duration-300"
                   >
                     Open Dashboard
                   </button>
-                  <button
-                    onClick={handleLogout}
-                    className="px-8 py-4 border border-slate-700 text-slate-100 font-semibold rounded-lg hover:bg-slate-800/50 transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('devverse.jwt', 'mock-jwt-token');
-                      localStorage.setItem('devverse.userId', 'dev-user-001');
-                      setIsLoggedIn(true);
-                    }}
-                    className="px-8 py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold rounded-lg hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105"
-                  >
-                    Launch Demo
-                  </button>
-                  <a
-                    href="https://github.com/Brian-w-m/DevVerse"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-8 py-4 border border-slate-700 text-slate-100 font-semibold rounded-lg hover:bg-slate-800/50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    View on GitHub
-                  </a>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('devverse.jwt', 'mock-jwt-token');
+                        localStorage.setItem('devverse.userId', 'dev-user-001');
+                        setIsLoggedIn(true);
+                      }}
+                      className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-purple-500/40 transition-all duration-300"
+                    >
+                      Get Started
+                    </button>
+                    <a 
+                      href="https://github.com/Brian-w-m/DevVerse" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="px-8 py-4 border-2 border-slate-700 text-slate-300 font-semibold rounded-xl hover:bg-slate-800/50 transition-all duration-300"
+                    >
+                      View on GitHub
+                    </a>
+                  </>
+                )}
+              </div>
+
+              {/* Tagline */}
+              <p className="text-sm text-slate-500 pt-4">CSS-First. JS-Light. Performance First. 60FPS optimized.</p>
             </div>
 
-            {/* Stats Row */}
-            <div className="flex gap-8 pt-8 border-t border-slate-800/50">
-              <div>
-                <div className="text-2xl font-bold text-amber-400">∞</div>
-                <p className="text-sm text-slate-400">Real-time Tracking</p>
+            {/* Right: Visual */}
+            <div className="hidden lg:flex items-center justify-center relative h-96">
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 left-1/2 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl opacity-40 -translate-x-1/2"></div>
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl opacity-30"></div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-amber-400">🎯</div>
-                <p className="text-sm text-slate-400">Global Leaderboard</p>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-amber-400">🔥</div>
-                <p className="text-sm text-slate-400">Streak Tracking</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Visual */}
-          <div className="hidden lg:block">
-            <div className="relative">
-              {/* Gradient card with glow */}
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-blue-500/20 rounded-2xl blur-2xl"></div>
-              <div className="relative bg-slate-900/80 backdrop-blur border border-slate-800/50 rounded-2xl p-8 space-y-6">
-                {/* Mock stats display */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">Today's Edits</span>
-                    <span className="text-2xl font-bold text-amber-400">145</span>
-                  </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500 w-3/4 rounded-full"></div>
-                  </div>
+              
+              <div className="relative z-10 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700 rounded-3xl p-8 backdrop-blur-sm space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-blue-400"></div>
+                  <span className="text-sm text-slate-300">DevVerse Status</span>
                 </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">Weekly Activity</span>
-                    <span className="text-2xl font-bold text-blue-400">892</span>
-                  </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 w-5/6 rounded-full"></div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">Current Streak</span>
-                    <span className="text-2xl font-bold text-orange-400">12 days</span>
-                  </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-orange-400 to-orange-500 w-1/2 rounded-full"></div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-800/50 text-xs text-slate-400 text-center">
-                  Live from VS Code
+                <div className="text-2xl font-black text-white">4,250</div>
+                <div className="text-xs text-slate-400">Your Current Score</div>
+                <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden mt-4">
+                  <div className="h-full w-2/3 bg-gradient-to-r from-blue-500 to-purple-600"></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </main>
 
-      {/* Features Section */}
-      <section className="relative z-10 mx-auto max-w-7xl px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-4">Why DevVerse?</h2>
-          <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            Everything you need to track your progress and stay motivated
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[
-            {
-              icon: TrendingUp,
-              title: 'Real Stats',
-              description: 'Every keystroke counts. Watch your metrics in real-time as you code.',
-              color: 'from-blue-500 to-blue-600',
-            },
-            {
-              icon: Trophy,
-              title: 'Global Leaderboard',
-              description: 'Compete with developers worldwide and see where you rank.',
-              color: 'from-purple-500 to-purple-600',
-            },
-            {
-              icon: Flame,
-              title: 'Streak Tracking',
-              description: 'Build and maintain streaks. Challenge yourself to code every day.',
-              color: 'from-orange-500 to-orange-600',
-            },
-          ].map((feature, idx) => {
-            const Icon = feature.icon;
-            return (
-              <div
-                key={idx}
-                className="group relative bg-slate-900/50 backdrop-blur border border-slate-800/50 rounded-xl p-8 hover:border-slate-700/50 transition-all duration-300"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 rounded-xl transition-opacity duration-300`}></div>
-                <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon className="w-6 h-6 text-white" />
+      {/* Floating Chat Widget */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {/* Chat Window */}
+        {chatOpen && (
+          <div className="mb-4 w-80 bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 flex flex-col h-96">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-black text-sm">D</div>
+                <div>
+                  <p className="text-sm font-semibold text-white">DevVerse Guide</p>
+                  <p className="text-xs text-slate-400">Always here to help</p>
                 </div>
-                <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
-                <p className="text-slate-400">{feature.description}</p>
               </div>
-            );
-          })}
-        </div>
-      </section>
+              <button onClick={() => setChatOpen(false)} className="text-slate-500 hover:text-slate-200 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-      {/* CTA Section */}
-      <section className="relative z-10 mx-auto max-w-7xl px-6 py-20">
-        <div className="bg-gradient-to-r from-amber-500/10 to-blue-500/10 border border-slate-800/50 rounded-2xl p-12 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ready to track your code?</h2>
-          <p className="text-lg text-slate-400 mb-8">Start your DevVerse journey today</p>
-          {!isLoggedIn && (
-            <button
-              onClick={() => {
-                localStorage.setItem('devverse.jwt', 'mock-jwt-token');
-                localStorage.setItem('devverse.userId', 'dev-user-001');
-                setIsLoggedIn(true);
-              }}
-              className="px-8 py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold rounded-lg hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-300 hover:scale-105"
-            >
-              Get Started
-            </button>
-          )}
-        </div>
-      </section>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs px-4 py-2 rounded-xl ${msg.type === 'user' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'bg-slate-800 text-slate-100'}`}>
+                    <p className="text-sm">{msg.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-800/50 py-8 mt-20">
-        <div className="mx-auto max-w-7xl px-6 text-center text-sm text-slate-400">
-          <p>DevVerse © 2026 • Track, Compete, Achieve</p>
-        </div>
-      </footer>
+            {/* Input */}
+            <div className="p-4 border-t border-slate-800">
+              <input type="text" placeholder="Ask me anything..." className="w-full px-3 py-2 text-sm rounded-lg bg-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            </div>
+          </div>
+        )}
+
+        {/* Chat Button */}
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl hover:shadow-purple-500/50 transition-all duration-300 flex items-center justify-center hover:scale-110"
+        >
+          {chatOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+        </button>
+      </div>
     </div>
   );
 }

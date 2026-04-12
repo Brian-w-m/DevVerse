@@ -118,7 +118,7 @@ export default function Dashboard() {
           backendUrl = 'http://localhost:8080';
         }
         
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
         console.log(`Fetching stats from ${backendUrl} for user ${userId}`);
 
@@ -132,7 +132,7 @@ export default function Dashboard() {
         
         const leaderboardPromise = fetch(`${backendUrl}/leaderboard?limit=10`, { 
           headers,
-          method: 'GET',
+          method: 'GET', 
         }).catch(err => {
           console.error('Leaderboard fetch error:', err);
           throw err;
