@@ -370,10 +370,15 @@ function drawCanvas(ctx: CanvasRenderingContext2D, gs: GS) {
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace('backend:8080', 'localhost:8080') ?? 'http://localhost:8080';
+const SAVE_KEY = 'devverse.game';
+const CLAIMED_KEY = 'devverse.game.claimedScore';
+
 export default function GamePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gsRef = useRef<GS>(initGS());
   const [tick, setTick] = useState(0);
+  const [codingScore, setCodingScore] = useState<number | null>(null);
   const rerender = useCallback(() => setTick(n => n+1), []);
 
   function gs() { return gsRef.current; }
@@ -381,6 +386,55 @@ export default function GamePage() {
   function addMsg(msg: string) {
     gsRef.current.msgs = [msg, ...gsRef.current.msgs].slice(0, 10);
   }
+
+  function saveGame() {
+    const { player, enemies, defeatedIds, msgs } = gsRef.current;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ player, enemies, defeatedIds, msgs }));
+    } catch { /* storage full – ignore */ }
+  }
+
+  // ── INIT: load saved game + claim coding gold ─────────────────────────
+  useEffect(() => {
+    // Restore saved game state
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<GS>;
+        if (saved.player)      gsRef.current.player      = saved.player;
+        if (saved.enemies)     gsRef.current.enemies     = saved.enemies;
+        if (saved.defeatedIds) gsRef.current.defeatedIds = saved.defeatedIds;
+        if (saved.msgs)        gsRef.current.msgs        = saved.msgs;
+      }
+    } catch { /* corrupted save – use fresh state */ }
+
+    // Claim coding-score gold
+    const userId = localStorage.getItem('devverse.userId') ?? '';
+    const claimedBefore = parseInt(localStorage.getItem(CLAIMED_KEY) ?? '0', 10);
+
+    const fetchAndAward = async () => {
+      let score = claimedBefore;
+      try {
+        const res = await fetch(`${BACKEND_URL}/stats/${userId}`);
+        if (res.ok) score = ((await res.json()) as { score: number }).score ?? claimedBefore;
+      } catch { /* backend offline – no bonus */ }
+
+      setCodingScore(score);
+      const newGold = Math.floor(Math.max(0, score - claimedBefore) / 20);
+      if (newGold > 0) {
+        gsRef.current.player.gold += newGold;
+        addMsg(`💻 Coding reward: +${newGold} gold! (${score - claimedBefore} new edits)`);
+        localStorage.setItem(CLAIMED_KEY, String(score));
+      } else if (claimedBefore === 0 && score === 0) {
+        addMsg('💻 Code in VS Code to earn gold here!');
+      }
+      saveGame();
+      rerender();
+    };
+
+    fetchAndAward();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── COMBAT ──────────────────────────────────────────────────────────────
   function startCombat(enemy: Enemy) {
@@ -410,6 +464,7 @@ export default function GamePage() {
         g.player.hp = Math.floor(g.player.maxHp / 4);
         g.player.x = 10; g.player.y = 10; g.player.area = 'town';
         addMsg('💀 Defeated! Respawned in town with low HP.');
+        saveGame();
         rerender();
       }, 1400);
     } else {
@@ -439,7 +494,7 @@ export default function GamePage() {
       combat.log = [`🌟 LEVEL UP! Now Lv.${player.level}!`, ...combat.log].slice(0, 5);
       addMsg(`🌟 Level Up! You are now Level ${player.level}!`);
     }
-    setTimeout(() => { gs().combat = null; addMsg(`Defeated ${combat.enemy.def.name}!`); rerender(); }, 1400);
+    setTimeout(() => { gs().combat = null; addMsg(`Defeated ${combat.enemy.def.name}!`); saveGame(); rerender(); }, 1400);
     rerender();
   }
 
@@ -562,6 +617,7 @@ export default function GamePage() {
     player.gold -= item.price;
     player.bag.push({ ...item });
     addMsg(`Bought ${item.name} (${item.price}g)`);
+    saveGame();
     rerender();
   }
 
@@ -573,6 +629,7 @@ export default function GamePage() {
     player.gold -= cost;
     player.hp = player.maxHp; player.mp = player.maxMp;
     addMsg(`💚 Fully healed! (${cost}g)`);
+    saveGame();
     rerender();
   }
 
@@ -591,6 +648,7 @@ export default function GamePage() {
       player.armor = item;
       addMsg(`Equipped ${item.name}`);
     }
+    saveGame();
     rerender();
   }
 
@@ -655,10 +713,36 @@ export default function GamePage() {
       <div className="flex flex-col gap-2">
         {/* ── HEADER ── */}
         <div className="flex items-center justify-between">
-          <h1 className="title">⚔️ PIXEL QUEST</h1>
-          <div className="text-xs text-gray-400 text-right leading-relaxed">
-            <p>WASD / Arrows — Move</p>
-            <p>E / Space — Interact &nbsp;•&nbsp; I — Bag</p>
+          <div className="flex items-center gap-3">
+            <h1 className="title">⚔️ PIXEL QUEST</h1>
+            {codingScore !== null && (
+              <div className="bg-blue-900/60 border border-blue-600 px-2 py-1 text-xs text-blue-300 rounded flex items-center gap-1"
+                title="Every 20 coding edits = 1 game gold">
+                <span className="text-blue-400">💻</span>
+                <span>{codingScore.toLocaleString()} edits</span>
+                <span className="text-gray-500 mx-1">→</span>
+                <span className="text-yellow-400">🪙 {Math.floor(codingScore / 20)}g earned</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <a href="/dashboard"
+              className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-2 py-1 transition">
+              ← Dashboard
+            </a>
+            <button onClick={() => {
+              if (!confirm('Reset save? This cannot be undone.')) return;
+              localStorage.removeItem(SAVE_KEY);
+              localStorage.removeItem(CLAIMED_KEY);
+              gsRef.current = initGS();
+              setCodingScore(null);
+              addMsg('Save reset. Refresh to start fresh!');
+              rerender();
+            }} className="text-xs text-gray-600 hover:text-red-400 transition px-1">⟳</button>
+            <div className="text-xs text-gray-400 text-right leading-relaxed">
+              <p>WASD / Arrows — Move</p>
+              <p>E / Space — Interact &nbsp;•&nbsp; I — Bag</p>
+            </div>
           </div>
         </div>
 

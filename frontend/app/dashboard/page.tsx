@@ -83,6 +83,14 @@ const MOCK_ACTIVITY: ActivityData = {
   total_this_week: 892,
 };
 
+interface GameSave {
+  player?: {
+    gold: number; level: number; hp: number; maxHp: number;
+    weapon: { name: string; icon: string } | null;
+    armor:  { name: string; icon: string } | null;
+  };
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -92,13 +100,17 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [useMockData, setUseMockData] = useState(false);
+  const [gameSave, setGameSave] = useState<GameSave | null>(null);
 
   useEffect(() => {
-    // Get user ID from localStorage
     const storedUserId = localStorage.getItem('devverse.userId');
-    if (storedUserId) {
-      setUserId(storedUserId);
-    }
+    if (storedUserId) setUserId(storedUserId);
+
+    // Load game save for the Pixel Quest card
+    try {
+      const raw = localStorage.getItem('devverse.game');
+      if (raw) setGameSave(JSON.parse(raw) as GameSave);
+    } catch { /* no save */ }
   }, []);
 
   useEffect(() => {
@@ -245,7 +257,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium">Total Score</CardTitle>
@@ -289,6 +301,40 @@ export default function Dashboard() {
               <p className="text-xs text-slate-400 mt-1">Days</p>
             </CardContent>
           </Card>
+
+          {/* Pixel Quest card */}
+          <a href="/game" className="block group">
+            <Card className="h-full border-yellow-800/50 bg-gradient-to-br from-slate-900 to-yellow-950/20 hover:border-yellow-600 transition-all duration-200 group-hover:shadow-lg group-hover:shadow-yellow-900/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+                <CardTitle className="text-sm font-medium text-yellow-300">⚔️ Pixel Quest</CardTitle>
+                <span className="text-lg">🎮</span>
+              </CardHeader>
+              <CardContent>
+                {gameSave?.player ? (
+                  <>
+                    <div className="text-2xl font-bold text-yellow-400">
+                      🪙 {gameSave.player.gold.toLocaleString()}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Lv.{gameSave.player.level} &nbsp;·&nbsp;
+                      {gameSave.player.hp}/{gameSave.player.maxHp} HP
+                    </p>
+                    <div className="mt-2 text-xs text-slate-500 truncate">
+                      {gameSave.player.weapon?.icon ?? '✊'} {gameSave.player.weapon?.name ?? 'No weapon'}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-yellow-600">Play</div>
+                    <p className="text-xs text-slate-400 mt-1">No save found</p>
+                  </>
+                )}
+                <p className="text-xs text-yellow-700 mt-2">
+                  {Math.floor((stats?.score ?? 0) / 20)}g earned from coding
+                </p>
+              </CardContent>
+            </Card>
+          </a>
         </div>
 
         {/* Tabs */}

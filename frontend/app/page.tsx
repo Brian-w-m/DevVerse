@@ -83,17 +83,30 @@ export default function Home() {
                   <Zap className="w-5 h-5 text-pink-400" />
                   <span className="text-sm text-slate-300">Streak Mastery</span>
                 </div>
+                <div className="flex items-center gap-3 md:col-span-3 mt-2 p-3 rounded-lg bg-yellow-950/30 border border-yellow-800/40">
+                  <span className="text-xl">⚔️</span>
+                  <span className="text-sm text-yellow-300 font-medium">Pixel Quest RPG</span>
+                  <span className="text-xs text-slate-400">— Your coding edits become in-game gold. Spend them on gear and defeat the Dragon.</span>
+                </div>
               </div>
 
               {/* CTA Buttons */}
               <div className="flex flex-wrap gap-4 pt-4">
                 {isLoggedIn ? (
+                  <>
                   <button 
                     onClick={goToDashboard} 
                     className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-purple-500/40 transition-all duration-300"
                   >
                     Open Dashboard
                   </button>
+                  <a
+                    href="/game"
+                    className="px-8 py-4 bg-gradient-to-r from-yellow-600 to-amber-500 text-black font-semibold rounded-xl hover:shadow-lg hover:shadow-yellow-500/40 transition-all duration-300 flex items-center gap-2"
+                  >
+                    ⚔️ Play Pixel Quest
+                  </a>
+                  </>
                 ) : (
                   <>
                     <button
