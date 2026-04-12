@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
-const TS = 44, GW = 20, GH = 15;
+const TS = 52, GW = 20, GH = 15;
 const CW = TS * GW, CH = TS * GH;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -307,7 +307,7 @@ function drawCanvas(ctx: CanvasRenderingContext2D, gs: GS) {
       drawTile(ctx, x, y, GET_TILE[player.area](x, y));
 
   // Portal labels
-  ctx.font = 'bold 8px monospace';
+  ctx.font = `bold ${Math.round(TS/5.5)}px monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   PORTALS[player.area].forEach(p => {
@@ -324,9 +324,9 @@ function drawCanvas(ctx: CanvasRenderingContext2D, gs: GS) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(npc.sprite, px+TS/2, py+TS/2);
-    ctx.font = 'bold 7px monospace';
+    ctx.font = `bold ${Math.round(TS/6)}px monospace`;
     ctx.fillStyle = '#adf';
-    ctx.fillText(npc.name.split(' ')[0], px+TS/2, py-4);
+    ctx.fillText(npc.name.split(' ')[0], px+TS/2, py-5);
   });
 
   // Enemies
@@ -344,17 +344,22 @@ function drawCanvas(ctx: CanvasRenderingContext2D, gs: GS) {
 
   // Player
   const px = player.x*TS, py = player.y*TS;
+  const ts8 = Math.round(TS*0.18), ts16 = ts8*2;
+  const headY = Math.round(TS*0.15), bodyY = Math.round(TS*0.32);
+  const eyeOff = Math.round(TS*0.27), eyeOff2 = Math.round(TS*0.41);
+  const eyeY = headY + Math.round(TS*0.05);
+  const eyeS = Math.max(2, Math.round(TS*0.06));
   ctx.fillStyle = '#7a4a2a';
   ctx.fillRect(px+4, py+4, TS-8, TS-8);
   ctx.fillStyle = '#ff6b35';
-  ctx.fillRect(px+8, py+14, TS-16, 12);
+  ctx.fillRect(px+ts8, py+bodyY, TS-ts16, Math.round(TS*0.27));
   ctx.fillStyle = '#f4a79e';
-  ctx.fillRect(px+10, py+7, TS-20, 10);
+  ctx.fillRect(px+ts8+Math.round(TS*0.045), py+headY, TS-ts16-Math.round(TS*0.09), Math.round(TS*0.23));
   ctx.fillStyle = '#000';
-  ctx.fillRect(px+12, py+9, 2, 2);
-  ctx.fillRect(px+18, py+9, 2, 2);
+  ctx.fillRect(px+eyeOff, py+eyeY, eyeS, eyeS);
+  ctx.fillRect(px+eyeOff2, py+eyeY, eyeS, eyeS);
   if (player.weapon) {
-    ctx.font = '11px serif';
+    ctx.font = `${Math.round(TS/4)}px serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
     ctx.fillText(player.weapon.icon, px+TS-2, py+2);
@@ -711,102 +716,138 @@ export default function GamePage() {
   const areaEnemies = enemies.filter(e => e.area === player.area).length;
 
   return (
-    <div className="h-screen overflow-hidden bg-[#0a0a14] text-white font-mono flex items-center justify-center p-3">
+    <div className="h-screen overflow-hidden bg-[#050810] text-white flex flex-col" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
         * { cursor: crosshair; }
-        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
-        .title { font-size:1.8rem; font-weight:900; letter-spacing:2px;
-          text-shadow:3px 3px #ff6b35,6px 6px #333; animation:bounce 1.2s ease-in-out infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        .blink { animation:pulse 1s ease-in-out infinite; }
-        ::-webkit-scrollbar { width:4px; }
-        ::-webkit-scrollbar-track { background:#111; }
-        ::-webkit-scrollbar-thumb { background:#444; }
+        .font-display { font-family: 'Rajdhani', sans-serif; }
+        .dot-grid-game {
+          background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 28px 28px;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes pulseAmber { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .blink { animation: blink 1s step-end infinite; }
+        .pulse-amber { animation: pulseAmber 1.2s ease-in-out infinite; }
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+        .side-card {
+          background: rgba(255,255,255,0.015);
+          border: 1px solid rgba(255,255,255,0.07);
+          position: relative; overflow: hidden;
+        }
+        .side-card::before {
+          content: ''; position: absolute;
+          top: 0; left: 0; right: 0; height: 2px;
+        }
+        .side-card.c-emerald::before { background: #10b981; }
+        .side-card.c-orange::before  { background: #f97316; }
+        .side-card.c-violet::before  { background: #8b5cf6; }
+        .side-card.c-amber::before   { background: #f59e0b; }
+        .bar-track { height: 3px; background: rgba(255,255,255,0.07); }
+        .bar-fill-t { height: 3px; transition: width 0.4s ease; }
+        .label { font-size: 0.6rem; letter-spacing: 0.12em; color: #4b5563; }
+        .combat-btn {
+          font-family: 'Rajdhani', sans-serif; font-weight: 700;
+          font-size: 0.8rem; letter-spacing: 0.08em;
+          padding: 0.5rem; border: 1px solid; transition: opacity 0.15s;
+          cursor: pointer;
+        }
+        .combat-btn:hover:not(:disabled) { opacity: 0.8; }
+        .combat-btn:disabled { opacity: 0.3; cursor: not-allowed; }
       `}</style>
 
-      <div className="flex flex-col gap-2">
-        {/* ── HEADER ── */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="title">⚔️ PIXEL QUEST</h1>
+      {/* Dot grid */}
+      <div className="fixed inset-0 dot-grid-game pointer-events-none" />
+
+      {/* ── NAV BAR ── */}
+      <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#050810]/90 backdrop-blur-md flex-shrink-0">
+        <div className="mx-auto max-w-7xl px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <a href="/" className="flex items-center gap-2 group">
+              <div className="w-5 h-5 border border-emerald-500/50 flex items-center justify-center">
+                <span className="font-display text-emerald-400 text-[10px] font-bold leading-none">DV</span>
+              </div>
+              <span className="font-display font-semibold text-slate-400 group-hover:text-white text-sm tracking-widest transition-colors">DEVVERSE</span>
+            </a>
+            <span className="text-slate-700 text-xs">/</span>
+            <a href="/dashboard" className="font-display text-slate-400 hover:text-white text-sm font-semibold tracking-wide transition-colors">Dashboard</a>
+            <span className="text-slate-700 text-xs">/</span>
+            <span className="font-display text-white text-sm font-semibold tracking-wide">⚔ Pixel Quest</span>
             {codingScore !== null && (
-              <div className="bg-blue-900/60 border border-blue-600 px-2 py-1 text-xs text-blue-300 rounded flex items-center gap-1"
+              <div className="border border-emerald-500/25 bg-emerald-950/20 px-2 py-1 flex items-center gap-1.5"
                 title="Every 20 coding edits = 1 game gold">
-                <span className="text-blue-400">💻</span>
-                <span>{codingScore.toLocaleString()} edits</span>
-                <span className="text-gray-500 mx-1">→</span>
-                <span className="text-yellow-400">🪙 {Math.floor(codingScore / 20)}g earned</span>
+                <span className="text-emerald-500 text-[10px]">💻</span>
+                <span className="label text-emerald-600">{codingScore.toLocaleString()} edits</span>
+                <span className="label text-slate-700 mx-0.5">→</span>
+                <span className="label text-amber-500">🪙 {Math.floor(codingScore / 20)}g</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <a href="/dashboard"
-              className="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-2 py-1 transition">
-              ← Dashboard
-            </a>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-slate-600 font-mono-custom tracking-wider hidden lg:block">WASD — MOVE &nbsp;|&nbsp; E — TALK &nbsp;|&nbsp; I — BAG</span>
             <button onClick={() => {
               if (!confirm('Reset save? This cannot be undone.')) return;
               localStorage.removeItem(SAVE_KEY);
               localStorage.removeItem(CLAIMED_KEY);
               gsRef.current = initGS();
               setCodingScore(null);
-              addMsg('Save reset. Refresh to start fresh!');
+              addMsg('Save reset.');
               rerender();
-            }} className="text-xs text-gray-600 hover:text-red-400 transition px-1">⟳</button>
-            <div className="text-xs text-gray-400 text-right leading-relaxed">
-              <p>WASD / Arrows — Move</p>
-              <p>E — Talk to adjacent NPC &nbsp;•&nbsp; I — Bag</p>
-            </div>
+            }} className="text-xs text-slate-500 hover:text-red-400 transition-colors font-mono-custom tracking-wider cursor-pointer" title="Reset save">RESET</button>
           </div>
         </div>
+      </nav>
 
-        {/* ── MAIN ROW ── */}
-        <div className="flex gap-3">
+      {/* ── MAIN CONTENT ── */}
+      <div className="relative z-10 flex-1 flex items-center justify-center p-1 min-h-0">
+        <div className="flex gap-3 items-start">
 
           {/* ── CANVAS + OVERLAYS ── */}
-          <div className="relative flex-shrink-0 border-4 border-yellow-600 self-start"
-            style={{ boxShadow:'0 0 24px rgba(180,130,0,0.5)', width:CW, height:CH }}>
+          <div className="relative flex-shrink-0 self-start"
+            style={{ width: CW, height: CH, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 0 40px rgba(16,185,129,0.07), inset 0 0 0 1px rgba(255,255,255,0.03)' }}>
             <canvas ref={canvasRef} width={CW} height={CH} className="block" />
 
-            {/* Area name badge */}
-            <div className="absolute top-2 left-2 bg-black/80 border border-yellow-600 px-2 py-1 text-xs text-yellow-400 font-bold">
-              📍 {AREA_NAMES[player.area]}
+            {/* Area + enemy badges */}
+            <div className="absolute top-2 left-2 bg-[#050810]/90 border border-white/[0.08] px-2 py-1 flex items-center gap-1.5">
+              <span className="label text-emerald-500 tracking-widest">📍 {AREA_NAMES[player.area].toUpperCase()}</span>
             </div>
-            <div className="absolute top-2 right-2 bg-black/80 border border-red-600 px-2 py-1 text-xs text-red-400">
-              👾 {areaEnemies} enemies
+            <div className="absolute top-2 right-2 bg-[#050810]/90 border border-white/[0.08] px-2 py-1">
+              <span className="label text-red-500">{areaEnemies} ENEMIES</span>
             </div>
 
-            {/* ── DIALOGUE OVERLAY ── */}
+            {/* ── DIALOGUE: TALK ── */}
             {dialogue && dialogue.mode === 'talk' && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/95 border-t-2 border-cyan-500 p-3">
+              <div className="absolute bottom-0 left-0 right-0 bg-[#050810]/97 border-t border-emerald-500/40 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="text-3xl flex-shrink-0">{dialogue.npc.sprite}</div>
+                  <div className="text-3xl flex-shrink-0 border border-white/[0.07] p-1 bg-white/[0.02]">{dialogue.npc.sprite}</div>
                   <div className="flex-1">
-                    <div className="text-cyan-400 font-bold text-sm mb-1">{dialogue.npc.name}</div>
-                    <div className="text-gray-200 text-sm leading-relaxed">{dialogue.npc.lines[dialogue.line]}</div>
-                    <div className="text-gray-500 text-xs mt-2 blink">
-                      {dialogue.line < dialogue.npc.lines.length - 1
-                        ? '▶ Press E to continue'
-                        : dialogue.npc.sells
-                          ? '▶ Press E to open shop'
-                          : dialogue.npc.healer
-                            ? '▶ Press E to open healing'
-                            : '▶ Press E or Esc to close'}
+                    <div className="font-display font-bold text-emerald-400 text-sm tracking-wide mb-1">{dialogue.npc.name}</div>
+                    <div className="text-slate-300 text-xs leading-relaxed">{dialogue.npc.lines[dialogue.line]}</div>
+                    <div className="label text-slate-600 mt-2 blink">
+                      {dialogue.line < dialogue.npc.lines.length - 1 ? '▶ PRESS E TO CONTINUE'
+                        : dialogue.npc.sells ? '▶ PRESS E FOR SHOP'
+                        : dialogue.npc.healer ? '▶ PRESS E TO HEAL'
+                        : '▶ PRESS E OR ESC TO CLOSE'}
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ── SHOP OVERLAY ── */}
+            {/* ── DIALOGUE: SHOP ── */}
             {dialogue && dialogue.mode === 'shop' && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/95 border-t-2 border-yellow-500 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-yellow-400 font-bold text-sm">{dialogue.npc.sprite} {dialogue.npc.name} — Shop</div>
+              <div className="absolute bottom-0 left-0 right-0 bg-[#050810]/97 border-t border-amber-500/40 p-4">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-yellow-300 text-xs">💰 {player.gold}g</span>
+                    <span className="font-display font-bold text-amber-400 text-sm tracking-wide">{dialogue.npc.sprite} {dialogue.npc.name}</span>
+                    <span className="label text-slate-600">— SHOP</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="label text-amber-500">🪙 {player.gold}g available</span>
                     <button onClick={() => { gsRef.current.dialogue = null; rerender(); }}
-                      className="text-gray-500 text-xs hover:text-white px-1">✕ Close</button>
+                      className="label text-slate-600 hover:text-white cursor-pointer transition">✕ ESC</button>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
@@ -814,13 +855,14 @@ export default function GamePage() {
                     const item = ITEMS[id];
                     const canAfford = player.gold >= item.price;
                     return (
-                      <button key={id} onClick={() => buyItem(id)}
-                        disabled={!canAfford}
-                        className={`p-2 border text-xs text-left transition ${canAfford ? 'border-yellow-600 bg-gray-900 hover:bg-gray-800 cursor-pointer' : 'border-gray-700 bg-gray-900/50 opacity-50 cursor-not-allowed'}`}>
-                        <div className="text-lg leading-none mb-1">{item.icon}</div>
-                        <div className="font-bold text-gray-200">{item.name}</div>
-                        <div className="text-gray-500">{item.desc}</div>
-                        <div className={`font-bold mt-1 ${canAfford ? 'text-yellow-400' : 'text-gray-600'}`}>{item.price}g</div>
+                      <button key={id} onClick={() => buyItem(id)} disabled={!canAfford}
+                        className={`p-2 text-xs text-left border transition ${canAfford
+                          ? 'border-amber-600/40 bg-amber-950/20 hover:bg-amber-950/40 cursor-pointer'
+                          : 'border-white/[0.05] bg-white/[0.01] opacity-40 cursor-not-allowed'}`}>
+                        <div className="text-xl leading-none mb-1.5">{item.icon}</div>
+                        <div className="font-display font-semibold text-slate-200 text-xs tracking-wide">{item.name}</div>
+                        <div className="label text-slate-500 mt-0.5">{item.desc}</div>
+                        <div className={`font-display font-bold mt-1.5 text-sm ${canAfford ? 'text-amber-400' : 'text-slate-600'}`}>{item.price}g</div>
                       </button>
                     );
                   })}
@@ -828,83 +870,96 @@ export default function GamePage() {
               </div>
             )}
 
-            {/* ── HEAL OVERLAY ── */}
+            {/* ── DIALOGUE: HEAL ── */}
             {dialogue && dialogue.mode === 'heal' && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black/95 border-t-2 border-green-500 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-green-400 font-bold text-sm">{dialogue.npc.sprite} {dialogue.npc.name}</div>
+              <div className="absolute bottom-0 left-0 right-0 bg-[#050810]/97 border-t border-emerald-500/40 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-display font-bold text-emerald-400 text-sm tracking-wide">{dialogue.npc.sprite} {dialogue.npc.name}</span>
                   <button onClick={() => { gsRef.current.dialogue = null; rerender(); }}
-                    className="text-gray-500 text-xs hover:text-white">✕ Close</button>
+                    className="label text-slate-600 hover:text-white cursor-pointer transition">✕ ESC</button>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-sm text-gray-300">
-                    <div>HP: <span className="text-red-400">{player.hp}</span> / {player.maxHp}</div>
-                    <div>MP: <span className="text-blue-400">{player.mp}</span> / {player.maxMp}</div>
+                <div className="flex items-center gap-6">
+                  <div className="text-xs">
+                    <div className="label text-slate-600 mb-1">CURRENT STATUS</div>
+                    <div className="text-red-400">HP {player.hp} / {player.maxHp}</div>
+                    <div className="text-sky-400">MP {player.mp} / {player.maxMp}</div>
                   </div>
-                  <button onClick={healPlayer}
-                    disabled={player.gold < (dialogue.npc.healer?.cost ?? 0)}
-                    className="px-4 py-2 bg-green-800 border-2 border-green-400 text-green-300 font-bold text-sm hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                    💚 Full Heal ({dialogue.npc.healer?.cost}g)
+                  <button onClick={healPlayer} disabled={player.gold < (dialogue.npc.healer?.cost ?? 0)}
+                    className="combat-btn border-emerald-500/60 text-emerald-400 bg-emerald-950/30 px-5">
+                    💚 FULL HEAL — {dialogue.npc.healer?.cost}g
                   </button>
-                  <div className="text-yellow-300 text-sm">💰 {player.gold}g</div>
+                  <div className="label text-amber-500">🪙 {player.gold}g</div>
                 </div>
               </div>
             )}
 
             {/* ── COMBAT OVERLAY ── */}
             {combat && (
-              <div className="absolute inset-0 bg-black/85 flex flex-col">
-                {/* Enemy panel */}
-                <div className="flex-1 flex items-center justify-center flex-col gap-2 p-4">
-                  <div className="text-5xl">{combat.enemy.def.sprite}</div>
-                  <div className="text-white font-bold text-lg">{combat.enemy.def.name}</div>
-                  <div className="w-48">
-                    <div className="text-xs text-gray-400 mb-1 flex justify-between">
-                      <span>HP</span><span>{combat.enemy.hp}/{combat.enemy.def.hp}</span>
+              <div className="absolute inset-0 flex flex-col" style={{ background: 'rgba(5,8,16,0.92)' }}>
+                {/* Enemy section */}
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
+                  <div className="text-6xl">{combat.enemy.def.sprite}</div>
+                  <div className="font-display font-bold text-white text-2xl tracking-wide">{combat.enemy.def.name}</div>
+
+                  {/* Enemy HP bar */}
+                  <div className="w-56">
+                    <div className="flex justify-between mb-1">
+                      <span className="label text-red-500">HP</span>
+                      <span className="label text-red-400">{combat.enemy.hp} / {combat.enemy.def.hp}</span>
                     </div>
-                    <div className="bg-gray-800 h-3 rounded">
-                      <div className="bg-red-500 h-3 rounded transition-all"
-                        style={{ width:`${Math.max(0,combat.enemy.hp/combat.enemy.def.hp*100)}%` }} />
+                    <div className="bar-track w-full">
+                      <div className="bar-fill-t bg-red-500"
+                        style={{ width: `${Math.max(0, combat.enemy.hp / combat.enemy.def.hp * 100)}%` }} />
                     </div>
                   </div>
+
+                  {/* Player quick stats */}
+                  <div className="flex gap-4 mt-1 border border-white/[0.06] bg-white/[0.02] px-4 py-2">
+                    <div className="text-center">
+                      <div className="label text-red-500">YOUR HP</div>
+                      <div className="font-display font-bold text-sm text-red-400">{player.hp}/{player.maxHp}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="label text-sky-500">MP</div>
+                      <div className="font-display font-bold text-sm text-sky-400">{player.mp}/{player.maxMp}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="label text-orange-500">ATK</div>
+                      <div className="font-display font-bold text-sm text-orange-400">{playerAtk(player)}</div>
+                    </div>
+                  </div>
+
                   {/* Combat log */}
-                  <div className="mt-2 w-64 text-center">
-                    {combat.log.slice(0, 3).map((line,i) => (
-                      <div key={i} className={`text-sm ${i===0?'text-yellow-300':'text-gray-500'}`}>{line}</div>
+                  <div className="w-72 border border-white/[0.06] bg-white/[0.02] p-2">
+                    {combat.log.slice(0, 3).map((line, i) => (
+                      <div key={i} className={`text-xs ${i === 0 ? 'text-amber-300' : 'text-slate-600'} leading-relaxed`}>{line}</div>
                     ))}
                   </div>
                 </div>
 
-                {/* Action buttons (only on player turn, not done) */}
+                {/* Action bar */}
                 {combat.turn === 'player' && !combat.done && (
-                  <div className="p-3 border-t border-gray-700">
+                  <div className="border-t border-white/[0.07] bg-[#050810]/80 p-3">
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       <button onClick={() => combatAction('attack')}
-                        className="py-2 bg-red-900 border border-red-500 text-red-300 text-xs font-bold hover:bg-red-800 transition">
-                        ⚔️ Attack
-                      </button>
-                      <button onClick={() => combatAction('magic')}
-                        disabled={player.mp < 20}
-                        className="py-2 bg-blue-900 border border-blue-500 text-blue-300 text-xs font-bold hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                        ✨ Magic<br /><span className="text-blue-500">(20 MP)</span>
+                        className="combat-btn border-red-500/60 text-red-400 bg-red-950/30">⚔ ATTACK</button>
+                      <button onClick={() => combatAction('magic')} disabled={player.mp < 20}
+                        className="combat-btn border-sky-500/60 text-sky-400 bg-sky-950/30">
+                        ✨ MAGIC<br /><span className="text-sky-700 text-[10px]">20 MP</span>
                       </button>
                       <button onClick={() => combatAction('defend')}
-                        className="py-2 bg-yellow-900 border border-yellow-600 text-yellow-300 text-xs font-bold hover:bg-yellow-800 transition">
-                        🛡 Defend
-                      </button>
+                        className="combat-btn border-amber-500/60 text-amber-400 bg-amber-950/30">🛡 DEFEND</button>
                       <button onClick={() => combatAction('flee')}
-                        className="py-2 bg-gray-800 border border-gray-600 text-gray-300 text-xs font-bold hover:bg-gray-700 transition">
-                        🏃 Flee
-                      </button>
+                        className="combat-btn border-white/[0.1] text-slate-400 bg-white/[0.02]">🏃 FLEE</button>
                     </div>
                     {potions.length > 0 && (
-                      <div className="flex gap-1">
-                        <span className="text-xs text-gray-500 self-center mr-1">Items:</span>
+                      <div className="flex gap-1.5 items-center">
+                        <span className="label text-slate-600">ITEMS</span>
                         {potions.slice(0, 4).map((item, i) => (
                           <button key={`${item.id}-${i}`} onClick={() => useCombatItem(item)}
                             title={item.desc}
-                            className="px-2 py-1 bg-purple-900 border border-purple-600 text-xs hover:bg-purple-800 transition">
-                            {item.icon} {item.name}
+                            className="combat-btn border-violet-500/40 text-violet-400 bg-violet-950/20 text-[10px] px-2 py-1">
+                            {item.icon}
                           </button>
                         ))}
                       </div>
@@ -912,8 +967,8 @@ export default function GamePage() {
                   </div>
                 )}
                 {combat.turn === 'enemy' && !combat.done && (
-                  <div className="p-3 border-t border-gray-700 text-center text-yellow-400 text-sm blink">
-                    {combat.enemy.def.name} is acting...
+                  <div className="border-t border-white/[0.07] p-3 text-center">
+                    <span className="label text-amber-500 pulse-amber">{combat.enemy.def.name.toUpperCase()} IS ACTING...</span>
                   </div>
                 )}
               </div>
@@ -921,102 +976,97 @@ export default function GamePage() {
           </div>
 
           {/* ── RIGHT SIDEBAR ── */}
-          <div className="flex flex-col gap-2 w-60 overflow-y-auto flex-shrink-0" style={{ maxHeight: CH + 8 }}>
+          <div className="flex flex-col gap-2 w-52 overflow-y-auto flex-shrink-0" style={{ maxHeight: CH }}>
 
             {/* Player stats */}
-            <div className="bg-gray-900 border border-gray-700 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-yellow-400 font-bold text-sm">🧙 Hero</span>
-                <span className="text-gray-400 text-xs">Lv.{player.level}</span>
+            <div className="side-card c-emerald p-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-display font-bold text-white text-sm tracking-wide">HERO</span>
+                <span className="font-display font-bold text-emerald-400 text-sm">LV.{player.level}</span>
               </div>
               {/* HP */}
-              <div className="mb-1">
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-red-400">❤️ HP</span>
-                  <span className="text-red-300">{player.hp}/{player.maxHp}</span>
+              <div className="mb-2">
+                <div className="flex justify-between mb-1">
+                  <span className="label text-red-500">HP</span>
+                  <span className="label text-red-400">{player.hp}/{player.maxHp}</span>
                 </div>
-                <div className="bg-gray-800 h-2 rounded">
-                  <div className="h-2 rounded transition-all"
-                    style={{ width:`${hpPct*100}%`, background: hpPct > 0.5 ? '#e53' : hpPct > 0.25 ? '#e83' : '#e22' }} />
+                <div className="bar-track">
+                  <div className="bar-fill-t"
+                    style={{ width:`${hpPct*100}%`, background: hpPct > 0.5 ? '#ef4444' : hpPct > 0.25 ? '#f97316' : '#dc2626' }} />
                 </div>
               </div>
               {/* MP */}
-              <div className="mb-1">
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-blue-400">💙 MP</span>
-                  <span className="text-blue-300">{player.mp}/{player.maxMp}</span>
+              <div className="mb-2">
+                <div className="flex justify-between mb-1">
+                  <span className="label text-sky-500">MP</span>
+                  <span className="label text-sky-400">{player.mp}/{player.maxMp}</span>
                 </div>
-                <div className="bg-gray-800 h-2 rounded">
-                  <div className="bg-blue-500 h-2 rounded transition-all" style={{ width:`${mpPct*100}%` }} />
+                <div className="bar-track">
+                  <div className="bar-fill-t bg-sky-500" style={{ width:`${mpPct*100}%` }} />
                 </div>
               </div>
               {/* XP */}
-              <div className="mb-2">
-                <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-green-400">⭐ XP</span>
-                  <span className="text-green-300">{player.xp}/{player.xpNeeded}</span>
+              <div className="mb-3">
+                <div className="flex justify-between mb-1">
+                  <span className="label text-violet-500">XP</span>
+                  <span className="label text-violet-400">{player.xp}/{player.xpNeeded}</span>
                 </div>
-                <div className="bg-gray-800 h-2 rounded">
-                  <div className="bg-green-500 h-2 rounded transition-all" style={{ width:`${xpPct*100}%` }} />
+                <div className="bar-track">
+                  <div className="bar-fill-t bg-violet-500" style={{ width:`${xpPct*100}%` }} />
                 </div>
               </div>
-              {/* Stats grid */}
-              <div className="grid grid-cols-3 gap-1 text-xs">
-                <div className="bg-gray-800 px-1 py-1 text-center">
-                  <div className="text-gray-500">ATK</div>
-                  <div className="text-orange-400 font-bold">{playerAtk(player)}</div>
-                </div>
-                <div className="bg-gray-800 px-1 py-1 text-center">
-                  <div className="text-gray-500">DEF</div>
-                  <div className="text-cyan-400 font-bold">{playerDef(player)}</div>
-                </div>
-                <div className="bg-gray-800 px-1 py-1 text-center">
-                  <div className="text-gray-500">GOLD</div>
-                  <div className="text-yellow-400 font-bold">{player.gold}</div>
-                </div>
+              {/* ATK / DEF / GOLD */}
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { l:'ATK', v: playerAtk(player), c:'text-orange-400' },
+                  { l:'DEF', v: playerDef(player), c:'text-sky-400' },
+                  { l:'GOLD', v: player.gold,      c:'text-amber-400' },
+                ].map(s => (
+                  <div key={s.l} className="bg-white/[0.03] border border-white/[0.05] py-1.5 text-center">
+                    <div className="label text-slate-600">{s.l}</div>
+                    <div className={`font-display font-bold text-sm ${s.c}`}>{s.v}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Equipment */}
-            <div className="bg-gray-900 border border-gray-700 p-3">
-              <div className="text-orange-400 font-bold text-xs mb-2">⚙️ EQUIPMENT</div>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 bg-gray-800 p-1.5 text-xs">
-                  <span className="text-gray-500 w-10">Weapon</span>
-                  {player.weapon
-                    ? <><span>{player.weapon.icon}</span><span className="text-orange-300">{player.weapon.name}</span></>
-                    : <span className="text-gray-600 italic">None</span>}
+            <div className="side-card c-orange p-3">
+              <div className="label text-slate-500 mb-2">EQUIPMENT</div>
+              {[
+                { label:'WEAPON', item: player.weapon, color:'text-orange-400' },
+                { label:'ARMOR',  item: player.armor,  color:'text-sky-400' },
+              ].map(row => (
+                <div key={row.label} className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.05] p-1.5 mb-1 last:mb-0">
+                  <span className="label text-slate-600 w-12">{row.label}</span>
+                  {row.item
+                    ? <><span className="text-base leading-none">{row.item.icon}</span>
+                       <span className={`text-xs ${row.color}`}>{row.item.name}</span></>
+                    : <span className="text-xs text-slate-700 italic">— unequipped</span>}
                 </div>
-                <div className="flex items-center gap-2 bg-gray-800 p-1.5 text-xs">
-                  <span className="text-gray-500 w-10">Armor</span>
-                  {player.armor
-                    ? <><span>{player.armor.icon}</span><span className="text-cyan-300">{player.armor.name}</span></>
-                    : <span className="text-gray-600 italic">None</span>}
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* Bag */}
-            <div className="bg-gray-900 border border-gray-700">
+            <div className="side-card c-violet overflow-hidden">
               <button onClick={() => { gsRef.current.showBag = !showBag; rerender(); }}
-                className="w-full p-2 flex items-center justify-between text-purple-300 font-bold text-xs hover:bg-gray-800 transition">
-                <span>📦 BAG ({player.bag.length})</span>
-                <span>{showBag ? '▲' : '▼'}</span>
+                className="w-full p-2.5 flex items-center justify-between hover:bg-white/[0.03] transition cursor-pointer">
+                <span className="label text-slate-400">BAG ({player.bag.length} items)</span>
+                <span className="label text-slate-600">{showBag ? '▲' : '▼'}</span>
               </button>
               {showBag && (
-                <div className="p-2 border-t border-gray-700 max-h-44 overflow-y-auto">
+                <div className="border-t border-white/[0.06] max-h-44 overflow-y-auto">
                   {player.bag.length === 0
-                    ? <p className="text-gray-600 text-xs italic">Empty</p>
+                    ? <p className="text-xs text-slate-700 italic p-2.5">Empty</p>
                     : player.bag.map((item, i) => (
-                      <div key={`${item.id}-${i}`}
-                        className="flex items-center gap-2 p-1.5 hover:bg-gray-800 cursor-pointer text-xs border-b border-gray-800 last:border-0"
-                        onClick={() => useFromBag(item)}>
-                        <span className="text-lg leading-none">{item.icon}</span>
-                        <div className="flex-1">
-                          <div className="text-gray-200 font-bold">{item.name}</div>
-                          <div className="text-gray-500">{item.desc}</div>
+                      <div key={`${item.id}-${i}`} onClick={() => useFromBag(item)}
+                        className="flex items-center gap-2 p-2 hover:bg-white/[0.03] cursor-pointer border-b border-white/[0.04] last:border-0 transition">
+                        <span className="text-base leading-none flex-shrink-0">{item.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-slate-200 truncate">{item.name}</div>
+                          <div className="label text-slate-600 truncate">{item.desc}</div>
                         </div>
-                        <span className="text-green-400 text-xs">{item.kind === 'potion' ? 'Use' : 'Equip'}</span>
+                        <span className="label text-emerald-600 flex-shrink-0">{item.kind === 'potion' ? 'USE' : 'EQP'}</span>
                       </div>
                     ))}
                 </div>
@@ -1024,19 +1074,16 @@ export default function GamePage() {
             </div>
 
             {/* Message log */}
-            <div className="bg-gray-900 border border-gray-700 p-2 flex-1">
-              <div className="text-gray-500 text-xs font-bold mb-1">📜 LOG</div>
-              <div className="flex flex-col gap-0.5">
+            <div className="side-card c-amber p-3 flex-1">
+              <div className="label text-slate-600 mb-2">ACTIVITY LOG</div>
+              <div className="space-y-1">
                 {msgs.slice(0, 8).map((msg, i) => (
-                  <div key={i} className={`text-xs ${i === 0 ? 'text-gray-200' : 'text-gray-600'}`}>{msg}</div>
+                  <div key={i} className={`text-[11px] leading-relaxed ${i === 0 ? 'text-slate-300' : 'text-slate-700'}`}>{msg}</div>
                 ))}
               </div>
             </div>
 
-            {/* Controls reminder */}
-            <div className="text-center text-gray-700 text-xs pb-1">
-              A DevVerse Pixel RPG
-            </div>
+            <div className="label text-slate-700 text-center pb-1">A DEVVERSE PIXEL RPG</div>
           </div>
         </div>
       </div>
