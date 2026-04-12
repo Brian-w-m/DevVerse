@@ -94,12 +94,12 @@ const NPCS: NPC[] = [
     ],
   },
   {
-    id:'merchant', name:'Merchant Kira', sprite:'🧝', x:13, y:3, area:'town',
+    id:'merchant', name:'Merchant Kira', sprite:'🧝', x:14, y:4, area:'town',
     lines:['Fine goods for a brave soul! Browse my wares and spend wisely.'],
     sells:['potion','mana_potion','iron_sword','leather'],
   },
   {
-    id:'blacksmith', name:'Thoin the Smith', sprite:'⚒️', x:16, y:9, area:'town',
+    id:'blacksmith', name:'Thoin the Smith', sprite:'⚒️', x:14, y:9, area:'town',
     lines:['I forge the finest blades and armor. The strong deserve the best.'],
     sells:['hi_potion','elixir','steel_sword','shadow_blade','chain','plate'],
   },
@@ -671,6 +671,20 @@ export default function GamePage() {
         if (k === 'arrowdown'  || k === 's') { e.preventDefault(); tryMove(0,1); }
         if (k === 'arrowleft'  || k === 'a') { e.preventDefault(); tryMove(-1,0); }
         if (k === 'arrowright' || k === 'd') { e.preventDefault(); tryMove(1,0); }
+        // E — interact with adjacent NPC
+        if (k === 'e') {
+          const { player: p } = gsRef.current;
+          const dirs = [{x:0,y:-1},{x:0,y:1},{x:-1,y:0},{x:1,y:0}];
+          const npc = NPCS.find(n =>
+            n.area === p.area &&
+            dirs.some(d => n.x === p.x + d.x && n.y === p.y + d.y)
+          );
+          if (npc) {
+            gsRef.current.dialogue = { npc, line:0, mode:'talk' };
+            addMsg(`💬 ${npc.name}`);
+            rerender();
+          }
+        }
       }
     };
     const onUp = (e: KeyboardEvent) => pressed.delete(e.key.toLowerCase());
@@ -741,7 +755,7 @@ export default function GamePage() {
             }} className="text-xs text-gray-600 hover:text-red-400 transition px-1">⟳</button>
             <div className="text-xs text-gray-400 text-right leading-relaxed">
               <p>WASD / Arrows — Move</p>
-              <p>E / Space — Interact &nbsp;•&nbsp; I — Bag</p>
+              <p>E — Talk to adjacent NPC &nbsp;•&nbsp; I — Bag</p>
             </div>
           </div>
         </div>
