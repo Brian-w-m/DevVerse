@@ -21,6 +21,98 @@ Make sure you have the following installed:
 
 ## Local development
 
+### Quick Start with Docker Compose
+
+The easiest way to get everything running locally is with Docker Compose:
+
+```powershell
+# Make sure you're in the project root
+docker compose up --build
+```
+
+Docker Compose will automatically:
+- Start DynamoDB Local
+- Create the Users table
+- Seed test users
+- Start the backend API
+- Start the frontend
+
+Then visit:
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8080`
+
+The frontend will automatically authenticate with the mock user `dev-user-001` and fetch real data from DynamoDB.
+
+### Manual Setup (For Development)
+
+If you prefer to run services locally without Docker:
+
+#### Step 1: Start DynamoDB Local
+
+```powershell
+# Option A: Using Docker
+docker run -p 8000:8000 amazon/dynamodb-local
+
+# Option B: If you have DynamoDB Local installed
+java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb
+```
+
+#### Step 2: Create DynamoDB Tables
+
+```powershell
+aws dynamodb create-table `
+  --table-name Users `
+  --attribute-definitions AttributeName=ID,AttributeType=S `
+  --key-schema AttributeName=ID,KeyType=HASH `
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 `
+  --endpoint-url http://localhost:8000 `
+  --region ap-southeast-2
+```
+
+#### Step 3: Seed Test Data
+
+```powershell
+cd backend
+DYNAMODB_ENDPOINT=http://localhost:8000 make seed
+```
+
+This will add 5 test users to DynamoDB:
+- `dev-user-001` (Developer) - Score: 4250
+- `user-1` (Alex Chen) - Score: 5840
+- `user-2` (Jordan Smith) - Score: 5320
+- `user-3` (Casey Parker) - Score: 4890
+- `user-4` (Morgan Lee) - Score: 4560
+
+#### Step 4: Start Backend
+
+In a terminal, set environment variables and run the backend:
+
+```powershell
+cd backend
+
+# Create a local .env file if it doesn't exist
+# Set these environment variables:
+$env:DYNAMODB_ENDPOINT = "http://localhost:8000"
+$env:DYNAMODB_TABLE = "Users"
+$env:JWT_SECRET = "test1234"
+
+make run
+```
+
+#### Step 5: Start Frontend
+
+In another terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Visit `http://localhost:3000` and you'll see the landing page. Click "Launch Demo" to enter with the test user, then the dashboard will fetch real data from DynamoDB.
+
+---
+
 ### 1. Backend
 
 The backend is a Go service in `backend/`.
@@ -52,13 +144,29 @@ make test
 
 The frontend is a Next.js app in `frontend/`.
 
+First, set up GitHub OAuth credentials:
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Create a new OAuth App
+3. Set the Redirect URI to `http://localhost:3000/auth/callback` (for local development)
+4. Copy the Client ID and Client Secret
+5. Create `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id_here
+GITHUB_CLIENT_SECRET=your_github_client_secret_here
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
+```
+
+Then run the frontend:
+
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000` in your browser.
+Then open `http://localhost:3000` in your browser. Click "Login with GitHub" on the landing page to authenticate.
 
 If the frontend needs the backend API, it expects the backend at `http://localhost:8080` by default.
 
@@ -82,6 +190,8 @@ To run or debug the extension:
 4. Make sure your backend is running at `http://localhost:8080` or set `BACKEND_URL` in the root `.env` file.
 
 The extension will activate when you login, then it will track text edits and send scores to the backend.
+
+**Note:** You can also log in via the web UI at `http://localhost:3000` without using the extension.
 
 ---
 

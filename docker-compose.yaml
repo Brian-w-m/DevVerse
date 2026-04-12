@@ -7,7 +7,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8080
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
     volumes:
@@ -69,7 +69,13 @@ services:
       echo 'Waiting for DynamoDB to be ready...';
       sleep 2;
       aws dynamodb create-table --table-name Users --attribute-definitions AttributeName=ID,AttributeType=S --key-schema AttributeName=ID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --endpoint-url http://dynamodb:8000 --region ap-southeast-2 || echo 'Table Users may already exist';
-      echo 'DynamoDB tables initialized!';
+      echo 'Creating test users...';
+      aws dynamodb put-item --table-name Users --item '{\"ID\": {\"S\": \"dev-user-001\"}, \"Name\": {\"S\": \"Developer\"}, \"Email\": {\"S\": \"dev@example.com\"}, \"Score\": {\"N\": \"4250\"}}' --endpoint-url http://dynamodb:8000 --region ap-southeast-2;
+      aws dynamodb put-item --table-name Users --item '{\"ID\": {\"S\": \"user-1\"}, \"Name\": {\"S\": \"Alex Chen\"}, \"Email\": {\"S\": \"alex@example.com\"}, \"Score\": {\"N\": \"5840\"}}' --endpoint-url http://dynamodb:8000 --region ap-southeast-2;
+      aws dynamodb put-item --table-name Users --item '{\"ID\": {\"S\": \"user-2\"}, \"Name\": {\"S\": \"Jordan Smith\"}, \"Email\": {\"S\": \"jordan@example.com\"}, \"Score\": {\"N\": \"5320\"}}' --endpoint-url http://dynamodb:8000 --region ap-southeast-2;
+      aws dynamodb put-item --table-name Users --item '{\"ID\": {\"S\": \"user-3\"}, \"Name\": {\"S\": \"Casey Parker\"}, \"Email\": {\"S\": \"casey@example.com\"}, \"Score\": {\"N\": \"4890\"}}' --endpoint-url http://dynamodb:8000 --region ap-southeast-2;
+      aws dynamodb put-item --table-name Users --item '{\"ID\": {\"S\": \"user-4\"}, \"Name\": {\"S\": \"Morgan Lee\"}, \"Email\": {\"S\": \"morgan@example.com\"}, \"Score\": {\"N\": \"4560\"}}' --endpoint-url http://dynamodb:8000 --region ap-southeast-2;
+      echo 'DynamoDB tables and test users initialized!';
       "
     networks:
       - default

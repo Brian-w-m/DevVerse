@@ -1,7 +1,8 @@
-.PHONY: build run test tidy docker docker-run docker-dev clean
+.PHONY: build run test tidy docker docker-run docker-dev clean seed
 
 APP_NAME=server
 PACKAGE=./src
+SEED_PACKAGE=./cmd/seed
 
 build:
 	go build -o bin/$(APP_NAME) $(PACKAGE)
@@ -14,6 +15,9 @@ test:
 
 tidy:
 	go mod tidy
+
+seed:
+	go run $(SEED_PACKAGE)
 
 docker:
 	docker build -t devverse/backend:latest .

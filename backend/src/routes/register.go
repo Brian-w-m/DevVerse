@@ -11,6 +11,10 @@ import (
 func Register(r *gin.Engine, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
 	registerHealth(r, dynamodbClient, cfg, logger)
 	registerAuth(r, dynamodbClient, cfg, logger)
+	
+	// Public stats endpoints (no auth required for development)
+	registerStats(r, dynamodbClient, cfg, logger)
+	
 	// Protect user routes with JWT
 	authGroup := r.Group("/")
 	authGroup.Use(utils.JWTAuth(cfg.JWTSecret))
