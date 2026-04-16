@@ -60,10 +60,29 @@ java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb
 #### Step 2: Create DynamoDB Tables
 
 ```powershell
+# Users table (PK: ID)
 aws dynamodb create-table `
   --table-name Users `
   --attribute-definitions AttributeName=ID,AttributeType=S `
   --key-schema AttributeName=ID,KeyType=HASH `
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 `
+  --endpoint-url http://localhost:8000 `
+  --region ap-southeast-2
+
+# Sessions table (PK: UserID, SK: SessionID)
+aws dynamodb create-table `
+  --table-name Sessions `
+  --attribute-definitions AttributeName=UserID,AttributeType=S AttributeName=SessionID,AttributeType=S `
+  --key-schema AttributeName=UserID,KeyType=HASH AttributeName=SessionID,KeyType=RANGE `
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 `
+  --endpoint-url http://localhost:8000 `
+  --region ap-southeast-2
+
+# DailyActivity table (PK: UserID, SK: Date)
+aws dynamodb create-table `
+  --table-name DailyActivity `
+  --attribute-definitions AttributeName=UserID,AttributeType=S AttributeName=Date,AttributeType=S `
+  --key-schema AttributeName=UserID,KeyType=HASH AttributeName=Date,KeyType=RANGE `
   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 `
   --endpoint-url http://localhost:8000 `
   --region ap-southeast-2

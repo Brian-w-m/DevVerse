@@ -10,8 +10,8 @@ const (
 	// them as environment-variable-backed fields on Config (like DynamoDBTable is today).
 	// Also add the CREATE TABLE commands for Sessions and DailyActivity to the Docker
 	// Compose init script and to the manual setup instructions in README.md.
-	//
-	// DefaultSessionsTable      = "Sessions"       // PK: UserID, SK: SessionID
-	// DefaultDailyActivityTable = "DailyActivity"  // PK: UserID, SK: Date (YYYY-MM-DD)
+
+	DefaultSessionsTable      = "Sessions"       // PK: UserID, SK: SessionID
+	DefaultDailyActivityTable = "DailyActivity"  // PK: UserID, SK: Date (YYYY-MM-DD)
 )
 

@@ -12,6 +12,8 @@ type Config struct {
 	DynamoDBEndpoint string
 	DynamoDBTable    string
 	JWTSecret        string
+	SessionsTable    string
+	DailyActivityTable string
 }
 
 func getEnv(key, def string) string {
@@ -38,6 +40,8 @@ func Load() Config {
 		DynamoDBEndpoint: getEnv("DYNAMODB_ENDPOINT", ""),
 		DynamoDBTable:    getEnv("DYNAMODB_TABLE", DefaultDynamoDBTable),
 		JWTSecret:        getEnv("JWT_SECRET", ""),
+		SessionsTable:      getEnv("SESSIONS_TABLE", DefaultSessionsTable),
+		DailyActivityTable: getEnv("DAILY_ACTIVITY_TABLE", DefaultDailyActivityTable),
 	}
 }
 
