@@ -147,6 +147,24 @@ func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig
 		})
 	})
 
+	// TODO 1.5 #5: Add the POST /users/:id/sessions route handler here.
+	// Accept JSON body: { sessionId, startedAt, endedAt, points, languageBreakdown }
+	// Validate that points > 0 and the session belongs to the authenticated user (JWT sub == id).
+	// Call sessionService.RecordSession(), then call userService.AddUserScore() with the points
+	// so the User.Score stays the single source of truth for total lifetime score.
+	// Return 201 with the created session object.
+
+	// TODO 1.5 #6: Add the following two GET route handlers here:
+	//
+	// GET /users/:id/streak
+	//   Call sessionService.GetStreak(ctx, id) and return { streak: N }.
+	//   Cache the result for 60 seconds (set Cache-Control: max-age=60) since it changes at most daily.
+	//
+	// GET /users/:id/activity?days=30
+	//   Parse the optional ?days query param (default 30, max 90).
+	//   Call sessionService.GetActivity(ctx, id, days) and return the []DailyActivity slice.
+	//   Used by the dashboard activity chart and by the game page gold calculation.
+
 	r.DELETE("/users/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		if err := userService.DeleteUser(c.Request.Context(), id); err != nil {

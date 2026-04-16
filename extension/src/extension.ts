@@ -4,6 +4,26 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
+// TODO 1.2 #1: Add language multiplier map here.
+// Read values from vscode.workspace.getConfiguration('devverse').get('languageMultipliers')
+// so users can override them. Fallback defaults:
+//   systems (go, rust, c, cpp): 1.5
+//   backend (python, java, typescript, javascript): 1.2
+//   frontend (html, css, scss, svelte, vue): 1.0
+//   config/data (json, yaml, toml, xml): 0.5
+//   docs (markdown, plaintext): 0.3
+// Also register these in extension package.json under contributes.configuration.
+// const LANG_MULTIPLIERS: Record<string, number> = { ... };
+
+// TODO 1.3 #1: Define a SessionState interface to track the current coding session.
+// interface SessionState {
+//   startedAt: number;        // ms timestamp of first edit
+//   lastEditAt: number;       // ms timestamp of most recent edit
+//   languageBreakdown: Record<string, number>;  // languageId → weighted points accumulated
+//   totalPoints: number;      // running weighted total for this session
+//   streak: number;           // consecutive active days, fetched from backend on activation
+// }
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
@@ -28,6 +48,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusBarItem.command = 'devverse.login';
 	statusBarItem.show();
 	context.subscriptions.push(statusBarItem);
+
+	// TODO 1.3 #2: Initialise session tracking variables here.
+	// let currentSession: SessionState | null = null;
+	// let sessionInactivityTimer: NodeJS.Timeout | undefined;
+	// const SESSION_GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
+
+	// TODO 1.4 #1: Create helpers to read and write the offline flush queue.
+	// The queue lives at path.join(context.globalStorageUri.fsPath, 'flush-queue.json').
+	// Each entry: { userId: string; points: number; sessionId: string; timestamp: number }
+	// async function readQueue(): Promise<FlushEntry[]> { ... }
+	// async function writeQueue(q: FlushEntry[]): Promise<void> { ... }
 
 	// Function to authenticate with backend
 	async function authenticateWithBackend(session: vscode.AuthenticationSession) {
@@ -114,6 +145,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Check auth status on activation (silently)
 	checkAuthStatus();
 
+	// TODO 1.3 #4: After checkAuthStatus resolves, fetch the user's current streak from
+	// GET /users/:id/streak (Phase 1.5 endpoint) and store it in currentSession.streak
+	// so the status bar and session flush payload include the correct streak value.
+
+	// TODO 1.6 #4: Register the 'devverse.showStats' command here (before the text-change
+	// listener). It should open a VS Code Webview panel ('devverse.statsPanel') displaying
+	// a mini dashboard: current session points, language breakdown bar chart, streak,
+	// today's daily quests (fetched from GET /users/:id/quests once Phase 2 is complete).
+	// Use panel.webview.html to render the content with the same Terminal Operator palette.
+
 	// Add debouncing for text changes
 	let changeTimer: NodeJS.Timeout | undefined;
 	let pendingCount = 0;
@@ -127,6 +168,33 @@ export async function activate(context: vscode.ExtensionContext) {
 			clearTimeout(changeTimer);
 		};
 
+		// TODO 1.2 #2: Replace this flat contentChanges.length accumulation with weighted scoring.
+		// For each change in event.contentChanges:
+		//   const langId = event.document.languageId;
+		//   const multiplier = LANG_MULTIPLIERS[langId] ?? 1.0;
+		//   const added   = change.text.length * multiplier;
+		//   const deleted  = change.rangeLength * 0.3 * multiplier;
+		//   pendingPoints += added + deleted;
+		// Also apply streak bonus (+10% per streak day, max 2.0×) and session bonus
+		// (+20% flat if session duration >= 30 min) when flushing — not per-change.
+
+		// TODO 1.3 #3: Update session state on every edit.
+		// const now = Date.now();
+		// if (!currentSession || now - currentSession.lastEditAt > SESSION_GAP_MS) {
+		//   // New session — previous one ended; flush it first if it existed
+		//   if (currentSession) flushSession(currentSession);
+		//   currentSession = { startedAt: now, lastEditAt: now, languageBreakdown: {}, totalPoints: 0, streak: currentSession?.streak ?? 0 };
+		// }
+		// currentSession.lastEditAt = now;
+		// currentSession.languageBreakdown[langId] = (currentSession.languageBreakdown[langId] ?? 0) + pointsThisChange;
+		// currentSession.totalPoints += pointsThisChange;
+		// Reset the inactivity timer: clearTimeout(sessionInactivityTimer);
+		// sessionInactivityTimer = setTimeout(() => flushSession(currentSession!), SESSION_GAP_MS);
+
+		// TODO 1.6 #1: After updating session state, refresh the status bar text to:
+		//   `⚡ DevVerse  +${currentSession.totalPoints.toFixed(0)} pts  🔥 ${currentSession.streak}d`
+		// and set statusBarItem.tooltip to the per-language breakdown string.
+
 		// accumulate changes within the debounce window
 		pendingCount += event.contentChanges.length;
 
@@ -139,6 +207,11 @@ export async function activate(context: vscode.ExtensionContext) {
 				const jwt = await context.secrets.get('devverse.jwt');
 				const userId = await context.secrets.get('devverse.userId');
 				if (!jwt || !userId) return;
+
+				// TODO 1.4 #2: Before this fetch, append { userId, points: toSend, sessionId, timestamp }
+				// to the offline queue via writeQueue(). On fetch success, drain the queue by
+				// iterating readQueue() and retrying oldest-first; remove entries that succeed.
+				// On fetch failure, do NOT show an error — the queue will be drained next time.
 
 				await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/score/add`, {
 					method: 'PATCH',
@@ -155,6 +228,21 @@ export async function activate(context: vscode.ExtensionContext) {
 		}, 500);
 		
 	});
+
+	// TODO 1.3 #3 (cont.) / TODO 1.6 #3: Create a flushSession() helper that:
+	//   1. Applies streak + session-duration bonuses to currentSession.totalPoints
+	//   2. POSTs to POST /users/:id/sessions (Phase 1.5 endpoint) with { points, startedAt,
+	//      endedAt, languageBreakdown, sessionId }
+	//   3. Shows vscode.window.showInformationMessage(
+	//        `Session ended — +${pts} pts earned. Total: ${newTotal.toLocaleString()}`)
+	//   4. Resets currentSession to null
+	// Also call flushSession() inside context.subscriptions.push(new vscode.Disposable(...))
+	// so it fires when VS Code closes (use vscode.workspace.onDidChangeWorkspaceFolders or
+	// the extension deactivation path).
+
+	// TODO 1.6 #2: Register devverse.languageMultipliers, devverse.minSessionGapMinutes,
+	// and devverse.enabled settings in extension/package.json under
+	// contributes.configuration.properties so users can override them via Settings UI.
 
 	context.subscriptions.push(onchangeDisposable);
 }

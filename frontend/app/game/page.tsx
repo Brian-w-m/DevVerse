@@ -379,6 +379,13 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace('backend:8080',
 const SAVE_KEY = 'devverse.game';
 const CLAIMED_KEY = 'devverse.game.claimedScore';
 
+// TODO 1.7 #1: Replace the flat /stats/:id score poll with a call to the new
+// GET /users/:id/activity?days=30 endpoint (Phase 1.5 #6). Sum the Points field
+// across all DailyActivity rows to get total session-weighted points, then use
+// that value for the gold conversion below instead of the raw edit count.
+// Remove CLAIMED_KEY and its localStorage bookkeeping once this is in place —
+// the backend deduplicates via the Sessions table, so double-awarding is impossible.
+
 export default function GamePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gsRef = useRef<GS>(initGS());
@@ -425,6 +432,10 @@ export default function GamePage() {
       } catch { /* backend offline – no bonus */ }
 
       setCodingScore(score);
+      // TODO 1.7 #2: Change the divisor from 20 (raw edit count) to 50 (weighted session
+      // points) once Phase 1.5 activity endpoint is live: Math.floor(newPoints / 50).
+      // The message should also reflect the new unit: "+Xg from Y session pts" rather
+      // than "Y new edits".
       const newGold = Math.floor(Math.max(0, score - claimedBefore) / 20);
       if (newGold > 0) {
         gsRef.current.player.gold += newGold;
@@ -775,6 +786,11 @@ export default function GamePage() {
             <a href="/dashboard" className="font-display text-slate-400 hover:text-white text-sm font-semibold tracking-wide transition-colors">Dashboard</a>
             <span className="text-slate-700 text-xs">/</span>
             <span className="font-display text-white text-sm font-semibold tracking-wide">⚔ Pixel Quest</span>
+            {/* TODO 1.7 #3: Update this badge once Phase 1.5/1.7 #1-#2 are complete.
+                 Replace "edits" with "pts", update the title to "Every 50 session pts = 1 gold",
+                 and change the divisor from 20 to 50. The codingScore state variable should
+                 hold the sum of weighted session points from the activity endpoint, not the
+                 raw edit count from /stats/:id. */}
             {codingScore !== null && (
               <div className="border border-emerald-500/25 bg-emerald-950/20 px-2 py-1 flex items-center gap-1.5"
                 title="Every 20 coding edits = 1 game gold">
