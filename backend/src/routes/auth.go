@@ -13,7 +13,7 @@ import (
 
 func registerAuth(r *gin.Engine, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
 	authService := services.NewAuthService(cfg.JWTSecret)
-	userService := services.NewUserService(dynamodbClient, cfg.DynamoDBTable)
+	userService := services.NewUserService(dynamodbClient, cfg.DynamoDBTable, cfg.DailyActivityTable)
 
 	r.POST("/auth/github", func(c *gin.Context) {
 		var req struct {

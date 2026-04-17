@@ -2,6 +2,7 @@ package routes
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,8 @@ import (
 )
 
 func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
-	userService := services.NewUserService(dynamodbClient, cfg.DynamoDBTable)
+	userService := services.NewUserService(dynamodbClient, cfg.DynamoDBTable, cfg.DailyActivityTable)
+	sessionService := services.NewSessionService(dynamodbClient, cfg.SessionsTable, cfg.DailyActivityTable)
 
 	r.GET("/users", func(c *gin.Context) {
 		users, err := userService.ListUsers(c.Request.Context())
@@ -128,7 +130,7 @@ func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig
 			return
 		}
 
-		if err := userService.AddUserScore(c.Request.Context(), id, addReq.Increment, cfg.DailyActivityTable); err != nil {
+		if err := userService.AddUserScore(c.Request.Context(), id, addReq.Increment); err != nil {
 			logger.Errorf("failed to add user score: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add user score"})
 			return
@@ -147,23 +149,73 @@ func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig
 		})
 	})
 
-	// TODO 1.5 #5: Add the POST /users/:id/sessions route handler here.
-	// Accept JSON body: { sessionId, startedAt, endedAt, points, languageBreakdown }
-	// Validate that points > 0 and the session belongs to the authenticated user (JWT sub == id).
-	// Call sessionService.RecordSession(), then call userService.AddUserScore() with the points
-	// so the User.Score stays the single source of truth for total lifetime score.
-	// Return 201 with the created session object.
+	r.POST("/users/:id/sessions", func(c *gin.Context) {
+		var session models.Session
+		if err := c.ShouldBindJSON(&session); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if session.Points <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "points must be greater than 0"})
+			return
+		}
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		if session.UserID != userID.(string) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "session does not belong to authenticated user"})
+			return
+		}
+		if err := sessionService.RecordSession(c.Request.Context(), session); err != nil {
+			logger.Errorf("failed to record session: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record session"})
+			return
+		}
+		if err := userService.AddUserScore(c.Request.Context(), session.UserID, session.Points); err != nil {
+			logger.Errorf("failed to add user score: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add user score"})
+			return
+		}
+		c.JSON(http.StatusCreated, session)
+	})
 
-	// TODO 1.5 #6: Add the following two GET route handlers here:
-	//
-	// GET /users/:id/streak
-	//   Call sessionService.GetStreak(ctx, id) and return { streak: N }.
-	//   Cache the result for 60 seconds (set Cache-Control: max-age=60) since it changes at most daily.
-	//
-	// GET /users/:id/activity?days=30
-	//   Parse the optional ?days query param (default 30, max 90).
-	//   Call sessionService.GetActivity(ctx, id, days) and return the []DailyActivity slice.
-	//   Used by the dashboard activity chart and by the game page gold calculation.
+	r.GET("/users/:id/streak", func(c *gin.Context) {
+		id := c.Param("id")
+		streak, err := sessionService.GetStreak(c.Request.Context(), id)
+		if err != nil {
+			logger.Errorf("failed to get streak: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get streak"})
+			return
+		}
+		c.Header("Cache-Control", "max-age=60")
+		c.JSON(http.StatusOK, gin.H{"streak": streak})
+	})
+
+	r.GET("/users/:id/activity", func(c *gin.Context) {
+		id := c.Param("id")
+		days := c.Query("days")
+		if days == "" {
+			days = "30"
+		}
+		daysInt, err := strconv.Atoi(days)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid days parameter"})
+			return
+		}
+		if daysInt < 1 || daysInt > 90 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "days must be between 1 and 90"})
+			return
+		}
+		activity, err := sessionService.GetActivity(c.Request.Context(), id, daysInt)
+		if err != nil {
+			logger.Errorf("failed to get activity: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get activity"})
+			return
+		}
+		c.JSON(http.StatusOK, activity)
+	})
 
 	r.DELETE("/users/:id", func(c *gin.Context) {
 		id := c.Param("id")

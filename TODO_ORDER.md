@@ -40,8 +40,10 @@
 
 | # | TODO | File | Status |
 |---|---|---|---|
-| 7 | **1.5 #5** — `POST /users/:id/sessions` route handler | `backend/src/routes/users.go` | ⬜ Todo |
-| 8 | **1.5 #6** — `GET /users/:id/streak` and `GET /users/:id/activity` route handlers | `backend/src/routes/users.go` | ⬜ Todo |
+| 7 | **1.5 #5** — `POST /users/:id/sessions` route handler | `backend/src/routes/users.go` | ✅ Done |
+| 8 | **1.5 #6** — `GET /users/:id/streak` and `GET /users/:id/activity` route handlers | `backend/src/routes/users.go` | ✅ Done |
+
+> Group 3 fully complete. Routes package compiles cleanly. Also fixed `auth.go` which called `NewUserService` with the old 2-arg signature.
 
 *Items 7 and 8 are parallel.*
 
