@@ -15,6 +15,30 @@ import * as dotenv from 'dotenv';
 // Also register these in extension package.json under contributes.configuration.
 // const LANG_MULTIPLIERS: Record<string, number> = { ... };
 
+const LANG_MULTIPLIERS: Record<string, number> = {
+	'go': 1.5,
+	'rust': 1.5,
+	'c': 1.5,
+	'cpp': 1.5,
+	'python': 1.2,
+	'java': 1.2,
+	'typescript': 1.2,
+	'javascript': 1.2,
+	'html': 1.0,
+	'css': 1.0,
+	'scss': 1.0,
+	'svelte': 1.0,
+	'vue': 1.0,
+	'json': 0.5,
+	'yaml': 0.5,
+	'toml': 0.5,
+	'xml': 0.5,
+	'markdown': 0.3,
+	'plaintext': 0.3,
+}
+
+vscode.workspace.getConfiguration('devverse').get('languageMultipliers') ?? LANG_MULTIPLIERS;
+
 // TODO 1.3 #1: Define a SessionState interface to track the current coding session.
 // interface SessionState {
 //   startedAt: number;        // ms timestamp of first edit
@@ -23,6 +47,14 @@ import * as dotenv from 'dotenv';
 //   totalPoints: number;      // running weighted total for this session
 //   streak: number;           // consecutive active days, fetched from backend on activation
 // }
+
+interface SessionState {
+	startedAt: number;		// ms timestamp of first edit
+	lastEditAt: number;		// ms timestamp of most recent edit
+	languageBreakdown: Record<string, number>;	// languageId → weighted points accumulated
+	totalPoints: number;	// running weighted total for this session
+	streak: number;		// consecutive active days, fetched from backend on activation
+}
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -54,6 +86,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	// let sessionInactivityTimer: NodeJS.Timeout | undefined;
 	// const SESSION_GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
 
+	let currentSession: SessionState | null = null;
+	let sessionInactivityTimer: NodeJS.Timeout | undefined;
+	const SESSION_GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
+	
 	// TODO 1.4 #1: Create helpers to read and write the offline flush queue.
 	// The queue lives at path.join(context.globalStorageUri.fsPath, 'flush-queue.json').
 	// Each entry: { userId: string; points: number; sessionId: string; timestamp: number }

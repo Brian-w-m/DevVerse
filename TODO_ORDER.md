@@ -13,6 +13,8 @@
 | 1 | **1.5 #1** — Create `Session` and `DailyActivity` model structs | `backend/src/models/session.go` | ✅ Done |
 | 2 | **1.5 #2** — Add table name constants and expose on `Config` + `Load()` | `backend/src/appconfig/constants.go`, `config.go` | ✅ Done |
 
+> Group 1 fully complete. TODO comment removed from `models/user.go`.
+
 *Items 1 and 2 are parallel.*
 
 ---
@@ -22,10 +24,12 @@
 
 | # | TODO | File | Status |
 |---|---|---|---|
-| 3 | **1.5 #3** — Upsert `DailyActivity` row inside `AddUserScore` | `backend/src/services/user_service.go` | ⬜ Todo |
-| 4 | **1.5 #4a** — Implement `RecordSession` | `backend/src/services/session_service.go` | ⬜ Todo |
-| 5 | **1.5 #4b** — Implement `GetStreak` | `backend/src/services/session_service.go` | ⬜ Todo |
-| 6 | **1.5 #4c** — Implement `GetActivity` | `backend/src/services/session_service.go` | ⬜ Todo |
+| 3 | **1.5 #3** — Upsert `DailyActivity` row inside `AddUserScore` | `backend/src/services/user_service.go` | ✅ Done |
+| 4 | **1.5 #4a** — Implement `RecordSession` | `backend/src/services/session_service.go` | ✅ Done |
+| 5 | **1.5 #4b** — Implement `GetStreak` | `backend/src/services/session_service.go` | ✅ Done |
+| 6 | **1.5 #4c** — Implement `GetActivity` | `backend/src/services/session_service.go` | ✅ Done |
+
+> Group 2 fully complete. All FIX comments removed, services package compiles cleanly.
 
 *Items 3–6 are parallel.*
 

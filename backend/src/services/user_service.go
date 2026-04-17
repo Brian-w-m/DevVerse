@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -12,14 +13,16 @@ import (
 )
 
 type UserService struct {
-	dynamoClient *dynamodb.Client
-	table        string
+	dynamoClient       *dynamodb.Client
+	table              string
+	dailyActivityTable string
 }
 
-func NewUserService(dynamoClient *dynamodb.Client, tableName string) *UserService {
+func NewUserService(dynamoClient *dynamodb.Client, tableName, dailyActivityTable string) *UserService {
 	return &UserService{
-		dynamoClient: dynamoClient,
-		table:        tableName,
+		dynamoClient:       dynamoClient,
+		table:              tableName,
+		dailyActivityTable: dailyActivityTable,
 	}
 }
 
@@ -142,12 +145,8 @@ func (s *UserService) UpdateUserScore(ctx context.Context, id string, score int)
 	return nil
 }
 
-// TODO 1.5 #3: After the atomic ADD in AddUserScore succeeds, upsert a DailyActivity record
-// for today's date using ADD Points :increment and ADD SessionCount :zero (so the field is
-// created if missing). The DailyActivity table name should come from a new field on
-// UserService (passed in from config). Use time.Now().UTC().Format("2006-01-02") for the date.
-// This keeps the dashboard activity graph accurate without a separate API call from the extension.
 func (s *UserService) AddUserScore(ctx context.Context, id string, increment int) error {
+	date := time.Now().UTC().Format("2006-01-02")
 	key, err := attributevalue.MarshalMap(map[string]string{
 		"ID": id,
 	})
@@ -169,6 +168,32 @@ func (s *UserService) AddUserScore(ctx context.Context, id string, increment int
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add user score: %w", err)
+	}
+
+	key, err = attributevalue.MarshalMap(map[string]string{
+		"UserID": id,
+		"Date": date,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal key: %w", err)
+	}
+	
+	updateExpr = "SET #date = :date ADD #points :increment"
+	_, err = s.dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.dailyActivityTable),
+		Key: key,
+		UpdateExpression: aws.String(updateExpr),
+		ExpressionAttributeNames: map[string]string{
+			"#points": "Points",
+			"#date": "Date",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":increment": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", increment)},
+			":date": &types.AttributeValueMemberS{Value: date},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upsert daily activity: %w", err)
 	}
 
 	return nil
@@ -224,21 +249,6 @@ func (s *UserService) CreateOrUpdateUserByGitHub(ctx context.Context, githubID s
 
 	return &newUser, nil
 }
-
-// TODO 1.5 #4: Add the following three service methods (can live in a new file
-// backend/src/services/session_service.go for cleanliness):
-//
-// RecordSession — writes a Session item to the Sessions table and increments
-//   DailyActivity.SessionCount for today.
-//   func (s *SessionService) RecordSession(ctx context.Context, session models.Session) error
-//
-// GetStreak — scans DailyActivity for the user ordered by Date DESC, counts how many
-//   consecutive calendar days have Points > 0, and returns that count.
-//   func (s *SessionService) GetStreak(ctx context.Context, userID string) (int, error)
-//
-// GetActivity — queries DailyActivity for the user for the last N days, returning a
-//   []models.DailyActivity slice sorted ascending by Date.
-//   func (s *SessionService) GetActivity(ctx context.Context, userID string, days int) ([]models.DailyActivity, error)
 
 func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 	key, err := attributevalue.MarshalMap(map[string]string{

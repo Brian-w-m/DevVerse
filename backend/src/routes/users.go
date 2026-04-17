@@ -128,7 +128,7 @@ func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig
 			return
 		}
 
-		if err := userService.AddUserScore(c.Request.Context(), id, addReq.Increment); err != nil {
+		if err := userService.AddUserScore(c.Request.Context(), id, addReq.Increment, cfg.DailyActivityTable); err != nil {
 			logger.Errorf("failed to add user score: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add user score"})
 			return

@@ -2,8 +2,14 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/Brian-w-m/DevVerse/backend/src/models"
 )
 
@@ -22,48 +28,123 @@ func NewSessionService(dynamoClient *dynamodb.Client, sessionsTable, dailyActivi
 	}
 }
 
-// TODO 1.5 #4a: Implement RecordSession.
-// Steps:
-//  1. Marshal session into a DynamoDB attribute map using attributevalue.MarshalMap.
-//  2. Call PutItem on s.sessionsTable with a ConditionExpression of
-//     "attribute_not_exists(SessionID)" to prevent duplicate flushes from the
-//     extension's offline queue.
-//  3. Increment DailyActivity.SessionCount for today's date using an UpdateItem with
-//     ADD SessionCount :one on s.dailyActivityTable (PK: UserID, SK: Date).
-//     Use time.Now().UTC().Format("2006-01-02") for the date key.
-//  4. Return any error; a ConditionalCheckFailedException on step 2 means the session
-//     was already recorded — treat that as a no-op (return nil).
 func (s *SessionService) RecordSession(ctx context.Context, session models.Session) error {
-	// TODO 1.5 #4a: implement (see steps above)
+	sessionMap, err := attributevalue.MarshalMap(session)
+	if err != nil {
+		return fmt.Errorf("failed to marshal session: %w", err)
+	}
+	_, err = s.dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(s.sessionsTable),
+		Item: sessionMap,
+		ConditionExpression: aws.String("attribute_not_exists(SessionID)"),
+	})
+	if err != nil {
+		var ccf *types.ConditionalCheckFailedException
+		if errors.As(err, &ccf) {
+			return nil
+		}
+		return err
+	}
+	date := time.Now().UTC().Format("2006-01-02")
+	_, err = s.dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.dailyActivityTable),
+		Key: map[string]types.AttributeValue{
+			"UserID": &types.AttributeValueMemberS{Value: session.UserID},
+			"Date":   &types.AttributeValueMemberS{Value: date},
+		},
+		UpdateExpression: aws.String("ADD #sessionCount :one"),
+		ExpressionAttributeNames: map[string]string{
+			"#sessionCount": "SessionCount",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":one": &types.AttributeValueMemberN{Value: "1"},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update daily activity: %w", err)
+	}
 	return nil
 }
 
-// TODO 1.5 #4b: Implement GetStreak.
-// Steps:
-//  1. Query DailyActivity for the given userID using a KeyConditionExpression of
-//     "UserID = :uid", with ScanIndexForward = false (newest dates first) and a Limit
-//     of 365 (cap the lookback to one year).
-//  2. Unmarshal results into []models.DailyActivity.
-//  3. Walk the slice day-by-day starting from yesterday (or today if the user has
-//     already coded today). For each expected calendar date check whether a matching
-//     DailyActivity row exists with Points > 0. Stop as soon as a day is missing.
-//  4. Return the count of consecutive days found.
 func (s *SessionService) GetStreak(ctx context.Context, userID string) (int, error) {
-	// TODO 1.5 #4b: implement (see steps above)
-	return 0, nil
+	result, err := s.dynamoClient.Query(ctx, &dynamodb.QueryInput{
+		TableName: aws.String(s.dailyActivityTable),
+		KeyConditionExpression: aws.String("UserID = :uid"),
+		ScanIndexForward: aws.Bool(false),
+		Limit: aws.Int32(365),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uid": &types.AttributeValueMemberS{Value: userID},
+		},
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to query daily activity: %w", err)
+	}
+	var dailyActivities []models.DailyActivity
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &dailyActivities)
+	if err != nil {
+		return 0, fmt.Errorf("failed to unmarshal daily activities: %w", err)
+	}
+	streak := 0
+	pointsMap := make(map[string]bool)
+	for _, activity := range dailyActivities {
+		if activity.Points > 0 {
+			pointsMap[activity.Date] = true
+		}
+	}
+	check := time.Now().UTC().Format("2006-01-02")
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	if !pointsMap[check] {
+		check = yesterday
+	}
+	for check != "" && pointsMap[check] {
+		streak++
+		t, _ := time.Parse("2006-01-02", check)
+		check = t.AddDate(0, 0, -1).Format("2006-01-02")
+	}
+	return streak, nil
 }
 
-// TODO 1.5 #4c: Implement GetActivity.
-// Steps:
-//  1. Compute the start date as time.Now().UTC().AddDate(0, 0, -(days-1)).Format("2006-01-02").
-//  2. Query DailyActivity with KeyConditionExpression "UserID = :uid AND #date >= :start",
-//     using ExpressionAttributeNames to alias "date" (reserved word in DynamoDB).
-//     Set ScanIndexForward = true so results are sorted oldest → newest.
-//  3. Unmarshal results into []models.DailyActivity.
-//  4. Backfill any missing dates in the range with zero-value DailyActivity entries so
-//     the dashboard chart always receives a contiguous series.
-//  5. Return the slice capped at `days` entries.
 func (s *SessionService) GetActivity(ctx context.Context, userID string, days int) ([]models.DailyActivity, error) {
-	// TODO 1.5 #4c: implement (see steps above)
-	return nil, nil
+	startDate := time.Now().UTC().AddDate(0, 0, -(days-1)).Format("2006-01-02")
+	result, err := s.dynamoClient.Query(ctx, &dynamodb.QueryInput{
+		TableName: aws.String(s.dailyActivityTable),
+		KeyConditionExpression: aws.String("UserID = :uid AND #date >= :start"),
+		ExpressionAttributeNames: map[string]string{
+			"#date": "Date",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uid":   &types.AttributeValueMemberS{Value: userID},
+			":start": &types.AttributeValueMemberS{Value: startDate},
+		},
+		ScanIndexForward: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query daily activity: %w", err)
+	}
+	var dailyActivities []models.DailyActivity
+	err = attributevalue.UnmarshalListOfMaps(result.Items, &dailyActivities)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal daily activities: %w", err)
+	}
+	activityMap := make(map[string]models.DailyActivity)
+	for _, activity := range dailyActivities {
+		activityMap[activity.Date] = activity
+	}
+	startTime, _ := time.Parse("2006-01-02", startDate)
+	endTime, _ := time.Parse("2006-01-02", time.Now().UTC().Format("2006-01-02"))
+	for t := startTime; !t.After(endTime); t = t.AddDate(0, 0, 1) {
+		if _, exists := activityMap[t.Format("2006-01-02")]; !exists {
+			activityMap[t.Format("2006-01-02")] = models.DailyActivity{
+				UserID:       userID,
+				Date:         t.Format("2006-01-02"),
+				Points:       0,
+				SessionCount: 0,
+			}
+		}
+	}
+	activities := make([]models.DailyActivity, 0, days)
+	for t := startTime; !t.After(endTime) && len(activities) < days; t = t.AddDate(0, 0, 1) {
+		activities = append(activities, activityMap[t.Format("2006-01-02")])
+	}
+	return activities, nil
 }
