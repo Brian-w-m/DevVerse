@@ -178,18 +178,16 @@ func (s *UserService) AddUserScore(ctx context.Context, id string, increment int
 		return fmt.Errorf("failed to marshal key: %w", err)
 	}
 	
-	updateExpr = "SET #date = :date ADD #points :increment"
+	updateExpr = "ADD #points :increment"
 	_, err = s.dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(s.dailyActivityTable),
 		Key: key,
 		UpdateExpression: aws.String(updateExpr),
 		ExpressionAttributeNames: map[string]string{
 			"#points": "Points",
-			"#date": "Date",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":increment": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", increment)},
-			":date": &types.AttributeValueMemberS{Value: date},
 		},
 	})
 	if err != nil {
