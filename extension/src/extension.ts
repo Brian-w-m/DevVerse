@@ -41,8 +41,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	let debounceTimer: NodeJS.Timeout | undefined;
 	let windowGapTimer: NodeJS.Timeout | undefined;
 	let windowMilestoneTimer: NodeJS.Timeout | undefined;
-	const WINDOW_MS = 10_000;   // TODO: change back to 30 * 60_000 (30 min) after testing
-	const GAP_MS = 5_000;       // TODO: change back to (config ?? 5) * 60_000 (5 min) after testing
+	const WINDOW_MS = 30 * 60_000;
+	const GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
 
 	// ── Offline queue (simple: just points) ──────────────────────────────────
 	const flushQueuePath = path.join(context.globalStorageUri.fsPath, 'flush-queue.json');
@@ -189,8 +189,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	// ── showStats webview ─────────────────────────────────────────────────────
 	const showStatsCommand = vscode.commands.registerCommand('devverse.showStats', async () => {
 		const panel = vscode.window.createWebviewPanel('devverse.stats', 'DevVerse Stats', vscode.ViewColumn.One, { enableScripts: true });
+		const fmtElapsed = (ms: number) => {
+			const m = Math.floor(ms / 60_000);
+			const s = Math.floor((ms % 60_000) / 1000);
+			return m > 0 ? `${m}min ${s}s` : `${s}s`;
+		};
+
 		const getHtml = () => {
-			const windowElapsed = windowStartedAt ? Math.floor((Date.now() - windowStartedAt) / 60_000) : 0;
+			const elapsedMs = windowStartedAt ? Date.now() - windowStartedAt : 0;
+			const windowElapsed = fmtElapsed(elapsedMs);
+			const windowTotal = `${Math.round(WINDOW_MS / 60_000)}min`;
+			const windowUnit = '';
 			const breakdown = Object.entries(languageBreakdown)
 				.sort(([, a], [, b]) => b - a)
 				.map(([lang, p]) => `<li><span class="lang">${lang}</span><span class="pts">${p.toFixed(0)} pts</span></li>`)
@@ -214,17 +223,50 @@ button { margin-top: 16px; background: #10b98122; border: 1px solid #10b981; col
 </style></head><body>
 <h1>⚡ DevVerse — Live Stats</h1>
 <div class="grid">
-  <div class="card"><div class="label">Window pts</div><div class="value">${windowSentPoints.toLocaleString()}</div></div>
-  <div class="card"><div class="label">Window time</div><div class="value blue">${windowElapsed}m / 30m</div></div>
-  <div class="card"><div class="label">Streak</div><div class="value amber">🔥 ${lastKnownStreak}d</div></div>
+  <div class="card"><div class="label">Window pts</div><div class="value" id="window-pts">${sessionDisplayPoints.toLocaleString()}</div></div>
+  <div class="card"><div class="label">Window time</div><div class="value blue" id="window-time">${windowElapsed} / ${windowTotal}</div></div>
+  <div class="card"><div class="label">Streak</div><div class="value amber" id="streak">🔥 ${lastKnownStreak}d</div></div>
 </div>
 <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Language Breakdown</div>
-<ul>${breakdown}</ul>
-<button onclick="vscode.acquireVsCodeApi().postMessage({command:'refresh'})">↺ Refresh</button>
-<script>const vscode=acquireVsCodeApi();window.addEventListener('message',e=>{if(e.data.command==='refresh')location.reload();});</script>
+<ul id="breakdown">${breakdown}</ul>
+<button onclick="vscode.postMessage({command:'refresh'})">↺ Refresh</button>
+<script>
+const vscode=acquireVsCodeApi();
+window.addEventListener('message',e=>{
+  const d=e.data;
+  if(d.command==='update'){
+    document.getElementById('window-pts').textContent=d.windowPts.toLocaleString();
+    document.getElementById('window-time').textContent=d.windowTime;
+    document.getElementById('streak').textContent='🔥 '+d.streak+'d';
+    document.getElementById('breakdown').innerHTML=d.breakdown;
+  }
+});
+</script>
 </body></html>`;
 		};
 		panel.webview.html = getHtml();
+
+		// Push live data to the webview every second
+		const liveInterval = setInterval(() => {
+			if (!panel.visible) return;
+			const elapsedMs = windowStartedAt ? Date.now() - windowStartedAt : 0;
+			const elapsed = fmtElapsed(elapsedMs);
+			const total = `${Math.round(WINDOW_MS / 60_000)}min`;
+			const streakMult = Math.min(1 + lastKnownStreak * 0.1, 2.0);
+			const livePts = sessionDisplayPoints + Math.floor((pendingRawPoints + fractionalRemainder) * streakMult);
+			panel.webview.postMessage({
+				command: 'update',
+				windowPts: livePts,
+				windowTime: `${elapsed} / ${total}`,
+				streak: lastKnownStreak,
+				breakdown: Object.entries(languageBreakdown)
+					.sort(([, a], [, b]) => b - a)
+					.map(([lang, p]) => `<li><span class="lang">${lang}</span><span class="pts">${p.toFixed(0)} pts</span></li>`)
+					.join('') || '<li class="muted">No activity yet</li>',
+			});
+		}, 1000);
+		panel.onDidDispose(() => clearInterval(liveInterval));
+
 		panel.webview.onDidReceiveMessage(msg => {
 			if (msg.command === 'refresh') {
 				fetchStreak().then(s => { lastKnownStreak = s; panel.webview.html = getHtml(); });
@@ -267,7 +309,7 @@ button { margin-top: 16px; background: #10b98122; border: 1px solid #10b981; col
 		const bonus = Math.round(windowSentPoints * 0.2);
 		await sendPoints(bonus);
 		const windowMins = Math.round(WINDOW_MS / 60_000);
-		const windowLabel = windowMins < 1 ? `${WINDOW_MS / 1000}s` : `${windowMins}min`;
+		const windowLabel = `${windowMins}min`;
 		vscode.window.showInformationMessage(
 			`⚡ ${windowLabel} session complete! +${bonus} bonus pts (20% of ${windowSentPoints.toLocaleString()} pts earned)`
 		);
@@ -314,7 +356,7 @@ button { margin-top: 16px; background: #10b98122; border: 1px solid #10b981; col
 		if (!windowStartedAt) {
 			windowStartedAt = Date.now();
 			windowMilestoneTimer = setTimeout(triggerWindowBonus, WINDOW_MS);
-			console.log(`[DevVerse] Window started. Milestone in ${WINDOW_MS / 1000}s.`);
+			console.log(`[DevVerse] Window started. Milestone in ${WINDOW_MS / 60_000}min.`);
 		}
 
 		// Reset gap timer — if no edit for GAP_MS, close the window without bonus
