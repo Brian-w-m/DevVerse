@@ -70,10 +70,10 @@
 
 | # | TODO | File | Status |
 |---|---|---|---|
-| 13 | **1.2 #2** — Replace flat `contentChanges.length` with weighted score formula | `extension/src/extension.ts` | ⬜ Todo |
-| 14 | **1.3 #3 + 1.6 #3** — Session start/update/end detection, inactivity timer, and `flushSession()` with end-of-session notification | `extension/src/extension.ts` | ⬜ Todo |
+| 13 | **1.2 #2** — Replace flat `contentChanges.length` with weighted score formula | `extension/src/extension.ts` | ✅ Done |
+| 14 | **1.3 #3 + 1.6 #3** — Session start/update/end detection, inactivity timer, and `flushSession()` with end-of-session notification | `extension/src/extension.ts` | ✅ Done |
 
-*Item 13 must come before 14 — `flushSession` applies the score that 13 calculates.*
+> Group 5 fully complete. `flushSession` implemented with correct streak multiplier (`min(1 + streak×0.1, 2.0×)`), conditional 30-min duration bonus (1.2×), POST to `/users/:id/sessions`, info message with language breakdown, `currentSession` reset, and deactivation hook. Old debounced `score/add` path removed (sessions now own score submission).
 
 ---
 

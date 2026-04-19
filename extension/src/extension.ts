@@ -188,90 +188,85 @@ export async function activate(context: vscode.ExtensionContext) {
 	// today's daily quests (fetched from GET /users/:id/quests once Phase 2 is complete).
 	// Use panel.webview.html to render the content with the same Terminal Operator palette.
 
-	// Add debouncing for text changes
-	let changeTimer: NodeJS.Timeout | undefined;
-	let pendingCount = 0;
+	async function flushSession(session: SessionState): Promise<void> {
+		currentSession = null;
+		clearTimeout(sessionInactivityTimer);
+
+		const now = Date.now();
+		const durationMs = now - session.startedAt;
+		const streakMultiplier = Math.min(1 + session.streak * 0.1, 2.0);
+		const durationMultiplier = durationMs >= 30 * 60_000 ? 1.2 : 1.0;
+		const finalPoints = Math.round(session.totalPoints * streakMultiplier * durationMultiplier);
+
+		try {
+			const jwt = await context.secrets.get('devverse.jwt');
+			const userId = await context.secrets.get('devverse.userId');
+			if (!jwt || !userId) return;
+
+			const sessionId = `${userId}-${session.startedAt}`;
+			await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/sessions`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${jwt}`,
+				},
+				body: JSON.stringify({
+					sessionId,
+					userId,
+					startedAt: session.startedAt,
+					endedAt: now,
+					points: finalPoints,
+					languageBreakdown: session.languageBreakdown,
+				}),
+			});
+
+			const breakdown = Object.entries(session.languageBreakdown)
+				.sort(([, a], [, b]) => b - a)
+				.slice(0, 3)
+				.map(([lang, pts]) => `${lang}: ${pts.toFixed(0)}`)
+				.join(', ');
+			vscode.window.showInformationMessage(
+				`Session ended — +${finalPoints} pts earned (${breakdown || 'no edits'})`,
+			);
+		} catch (e: any) {
+			console.error('Flush session failed', e);
+		}
+	}
+
+	context.subscriptions.push(new vscode.Disposable(() => {
+		if (currentSession) { flushSession(currentSession); }
+	}));
 
 	const onchangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
 		if (event.contentChanges.length === 0) {
 			return;
 		}
 
-		if (changeTimer) {
-			clearTimeout(changeTimer);
-		};
+		const langId = event.document.languageId;
+		let pendingPoints = 0;
+		for (const change of event.contentChanges) {
+			const multiplier = getLangMultipliers()[langId] ?? 1.0;
+			const added = change.text.length * multiplier;
+			const deleted = change.rangeLength * 0.3 * multiplier;
+			pendingPoints += added + deleted;
+		}
 
-		// TODO 1.2 #2: Replace this flat contentChanges.length accumulation with weighted scoring.
-		// For each change in event.contentChanges:
-		//   const langId = event.document.languageId;
-		//   const multiplier = LANG_MULTIPLIERS[langId] ?? 1.0;
-		//   const added   = change.text.length * multiplier;
-		//   const deleted  = change.rangeLength * 0.3 * multiplier;
-		//   pendingPoints += added + deleted;
-		// Also apply streak bonus (+10% per streak day, max 2.0×) and session bonus
-		// (+20% flat if session duration >= 30 min) when flushing — not per-change.
-
-		// TODO 1.3 #3: Update session state on every edit.
-		// const now = Date.now();
-		// if (!currentSession || now - currentSession.lastEditAt > SESSION_GAP_MS) {
-		//   // New session — previous one ended; flush it first if it existed
-		//   if (currentSession) flushSession(currentSession);
-		//   currentSession = { startedAt: now, lastEditAt: now, languageBreakdown: {}, totalPoints: 0, streak: currentSession?.streak ?? 0 };
-		// }
-		// currentSession.lastEditAt = now;
-		// currentSession.languageBreakdown[langId] = (currentSession.languageBreakdown[langId] ?? 0) + pointsThisChange;
-		// currentSession.totalPoints += pointsThisChange;
-		// Reset the inactivity timer: clearTimeout(sessionInactivityTimer);
-		// sessionInactivityTimer = setTimeout(() => flushSession(currentSession!), SESSION_GAP_MS);
+		const now = Date.now();
+		if (!currentSession || now - currentSession.lastEditAt > SESSION_GAP_MS) {
+		  // New session — previous one ended; flush it first if it existed
+		  if (currentSession) flushSession(currentSession);
+		  currentSession = { startedAt: now, lastEditAt: now, languageBreakdown: {}, totalPoints: 0, streak: currentSession?.streak ?? 0 };
+		}
+		currentSession.lastEditAt = now;
+		currentSession.languageBreakdown[langId] = (currentSession.languageBreakdown[langId] ?? 0) + pendingPoints;
+		currentSession.totalPoints += pendingPoints;
+		clearTimeout(sessionInactivityTimer);
+		sessionInactivityTimer = setTimeout(() => flushSession(currentSession!), SESSION_GAP_MS);
 
 		// TODO 1.6 #1: After updating session state, refresh the status bar text to:
 		//   `⚡ DevVerse  +${currentSession.totalPoints.toFixed(0)} pts  🔥 ${currentSession.streak}d`
 		// and set statusBarItem.tooltip to the per-language breakdown string.
-
-		// accumulate changes within the debounce window
-		pendingCount += event.contentChanges.length;
-
-		changeTimer = setTimeout(async () => {
-			// capture and reset the batch count
-			const toSend = pendingCount;
-			pendingCount = 0;
-
-			try {
-				const jwt = await context.secrets.get('devverse.jwt');
-				const userId = await context.secrets.get('devverse.userId');
-				if (!jwt || !userId) return;
-
-				// TODO 1.4 #2: Before this fetch, append { userId, points: toSend, sessionId, timestamp }
-				// to the offline queue via writeQueue(). On fetch success, drain the queue by
-				// iterating readQueue() and retrying oldest-first; remove entries that succeed.
-				// On fetch failure, do NOT show an error — the queue will be drained next time.
-
-				await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/score/add`, {
-					method: 'PATCH',
-					headers: { 
-						'Content-Type': 'application/json',
-						'Authorization': `Bearer ${jwt}`
-					},
-					body: JSON.stringify({ increment: toSend }),
-				});
-			} catch (e: any) {
-				console.error('Add score failed', e);
-				vscode.window.showErrorMessage(`Add score failed: ${e?.message || String(e)}`);
-			}
-		}, 500);
-		
 	});
-
-	// TODO 1.3 #3 (cont.) / TODO 1.6 #3: Create a flushSession() helper that:
-	//   1. Applies streak + session-duration bonuses to currentSession.totalPoints
-	//   2. POSTs to POST /users/:id/sessions (Phase 1.5 endpoint) with { points, startedAt,
-	//      endedAt, languageBreakdown, sessionId }
-	//   3. Shows vscode.window.showInformationMessage(
-	//        `Session ended — +${pts} pts earned. Total: ${newTotal.toLocaleString()}`)
-	//   4. Resets currentSession to null
-	// Also call flushSession() inside context.subscriptions.push(new vscode.Disposable(...))
-	// so it fires when VS Code closes (use vscode.workspace.onDidChangeWorkspaceFolders or
-	// the extension deactivation path).
 
 	// TODO 1.6 #2: Register devverse.languageMultipliers, devverse.minSessionGapMinutes,
 	// and devverse.enabled settings in extension/package.json under
