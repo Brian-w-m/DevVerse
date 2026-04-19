@@ -66,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	let currentSession: SessionState | null = null;
 	let sessionInactivityTimer: NodeJS.Timeout | undefined;
+	let lastKnownStreak = 0;
 	const SESSION_GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
 	
 	const flushQueuePath = path.join(context.globalStorageUri.fsPath, 'flush-queue.json');
@@ -74,6 +75,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		points: number;
 		sessionId: string;
 		timestamp: number;
+		startedAt: number;
+		endedAt: number;
+		languageBreakdown: Record<string, number>;
 	}
 	async function readQueue(): Promise<FlushEntry[]> {
 		try {
@@ -175,18 +179,100 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(loginCommand);
 
-	// Check auth status on activation (silently)
-	checkAuthStatus();
+	// Check auth status on activation (silently), then seed the streak counter
+	async function fetchStreak(): Promise<number> {
+		try {
+			const jwt = await context.secrets.get('devverse.jwt');
+			const userId = await context.secrets.get('devverse.userId');
+			if (!jwt || !userId) return 0;
+			const res = await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/streak`, {
+				headers: { 'Authorization': `Bearer ${jwt}` },
+			});
+			if (!res.ok) return 0;
+			const data: any = await res.json();
+			return data.streak ?? 0;
+		} catch (e: any) {
+			console.error('Failed to fetch streak', e);
+			return 0;
+		}
+	}
+	checkAuthStatus().then(() => fetchStreak().then(streak => {
+		lastKnownStreak = streak;
+		if (currentSession) currentSession.streak = streak;
+	}));
 
-	// TODO 1.3 #4: After checkAuthStatus resolves, fetch the user's current streak from
-	// GET /users/:id/streak (Phase 1.5 endpoint) and store it in currentSession.streak
-	// so the status bar and session flush payload include the correct streak value.
+	const showStatsCommand = vscode.commands.registerCommand('devverse.showStats', async () => {
+		const panel = vscode.window.createWebviewPanel(
+			'devverse.stats',
+			'DevVerse Stats',
+			vscode.ViewColumn.One,
+			{ enableScripts: true },
+		);
 
-	// TODO 1.6 #4: Register the 'devverse.showStats' command here (before the text-change
-	// listener). It should open a VS Code Webview panel ('devverse.statsPanel') displaying
-	// a mini dashboard: current session points, language breakdown bar chart, streak,
-	// today's daily quests (fetched from GET /users/:id/quests once Phase 2 is complete).
-	// Use panel.webview.html to render the content with the same Terminal Operator palette.
+		const getHtml = () => {
+			const sess = currentSession;
+			const pts = sess ? sess.totalPoints.toFixed(0) : '0';
+			const streak = sess ? sess.streak : lastKnownStreak;
+			const breakdown = sess
+				? Object.entries(sess.languageBreakdown)
+					.sort(([, a], [, b]) => b - a)
+					.map(([lang, p]) => `<li><span class="lang">${lang}</span><span class="pts">${p.toFixed(0)} pts</span></li>`)
+					.join('')
+				: '<li class="muted">No active session</li>';
+			return /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050810; color: #e2e8f0; font-family: 'IBM Plex Mono', 'Courier New', monospace; padding: 24px; }
+  h1 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #10b981; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .card { background: #0d1117; border: 1px solid #1e2d3d; border-radius: 6px; padding: 14px; }
+  .card .label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  .card .value { font-size: 22px; font-weight: 700; color: #10b981; }
+  .card .value.amber { color: #f59e0b; }
+  ul { list-style: none; background: #0d1117; border: 1px solid #1e2d3d; border-radius: 6px; padding: 12px 14px; }
+  li { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; border-bottom: 1px solid #1e2d3d22; }
+  li:last-child { border-bottom: none; }
+  .lang { color: #94a3b8; }
+  .pts { color: #10b981; }
+  .muted { color: #475569; font-style: italic; }
+  button { margin-top: 16px; background: #10b98122; border: 1px solid #10b981; color: #10b981; padding: 6px 16px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; letter-spacing: .08em; }
+  button:hover { background: #10b98133; }
+</style>
+</head>
+<body>
+<h1>⚡ DevVerse — Session Stats</h1>
+<div class="grid">
+  <div class="card"><div class="label">Session pts</div><div class="value">${pts}</div></div>
+  <div class="card"><div class="label">Streak</div><div class="value amber">🔥 ${streak}d</div></div>
+</div>
+<div class="label" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:8px;">Language Breakdown</div>
+<ul>${breakdown}</ul>
+<button onclick="refresh()">↺ Refresh</button>
+<script>
+  const vscode = acquireVsCodeApi();
+  function refresh() { vscode.postMessage({ command: 'refresh' }); }
+  window.addEventListener('message', e => {
+    if (e.data.command === 'refresh') { location.reload(); }
+  });
+</script>
+</body></html>`;
+		};
+
+		panel.webview.html = getHtml();
+		panel.webview.onDidReceiveMessage(message => {
+			if (message.command === 'refresh') {
+				fetchStreak().then(streak => {
+					lastKnownStreak = streak;
+					panel.webview.html = getHtml();
+				});
+			}
+		});
+	});
+	context.subscriptions.push(showStatsCommand);
 
 	async function flushSession(session: SessionState): Promise<void> {
 		currentSession = null;
@@ -204,21 +290,44 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!jwt || !userId) return;
 
 			const sessionId = `${userId}-${session.startedAt}`;
-			await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(userId)}/sessions`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${jwt}`,
-				},
-				body: JSON.stringify({
-					sessionId,
-					userId,
-					startedAt: session.startedAt,
-					endedAt: now,
-					points: finalPoints,
-					languageBreakdown: session.languageBreakdown,
-				}),
-			});
+			const entry: FlushEntry = {
+				userId,
+				points: finalPoints,
+				sessionId,
+				timestamp: now,
+				startedAt: session.startedAt,
+				endedAt: now,
+				languageBreakdown: session.languageBreakdown,
+			};
+
+			const queue = await readQueue();
+			queue.push(entry);
+			await writeQueue(queue);
+
+			const remaining: FlushEntry[] = [];
+			for (const qEntry of queue) {
+				try {
+					const res = await fetch(`${backendUrlFromEnv}/users/${encodeURIComponent(qEntry.userId)}/sessions`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Authorization': `Bearer ${jwt}`,
+						},
+						body: JSON.stringify({
+							sessionId: qEntry.sessionId,
+							userId: qEntry.userId,
+							startedAt: qEntry.startedAt,
+							endedAt: qEntry.endedAt,
+							points: qEntry.points,
+							languageBreakdown: qEntry.languageBreakdown,
+						}),
+					});
+					if (!res.ok) { remaining.push(qEntry); }
+				} catch {
+					remaining.push(qEntry);
+				}
+			}
+			await writeQueue(remaining);
 
 			const breakdown = Object.entries(session.languageBreakdown)
 				.sort(([, a], [, b]) => b - a)
@@ -255,7 +364,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (!currentSession || now - currentSession.lastEditAt > SESSION_GAP_MS) {
 		  // New session — previous one ended; flush it first if it existed
 		  if (currentSession) flushSession(currentSession);
-		  currentSession = { startedAt: now, lastEditAt: now, languageBreakdown: {}, totalPoints: 0, streak: currentSession?.streak ?? 0 };
+		  currentSession = { startedAt: now, lastEditAt: now, languageBreakdown: {}, totalPoints: 0, streak: lastKnownStreak };
 		}
 		currentSession.lastEditAt = now;
 		currentSession.languageBreakdown[langId] = (currentSession.languageBreakdown[langId] ?? 0) + pendingPoints;
@@ -263,14 +372,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		clearTimeout(sessionInactivityTimer);
 		sessionInactivityTimer = setTimeout(() => flushSession(currentSession!), SESSION_GAP_MS);
 
-		// TODO 1.6 #1: After updating session state, refresh the status bar text to:
-		//   `⚡ DevVerse  +${currentSession.totalPoints.toFixed(0)} pts  🔥 ${currentSession.streak}d`
-		// and set statusBarItem.tooltip to the per-language breakdown string.
+		statusBarItem.text = `⚡ DevVerse +${currentSession.totalPoints.toFixed(0)} pts 🔥 ${currentSession.streak}d`;
+		statusBarItem.tooltip = Object.entries(currentSession.languageBreakdown)
+			.map(([lang, points]) => `${lang}: ${points.toFixed(0)} pts`)
+			.join('\n');
 	});
-
-	// TODO 1.6 #2: Register devverse.languageMultipliers, devverse.minSessionGapMinutes,
-	// and devverse.enabled settings in extension/package.json under
-	// contributes.configuration.properties so users can override them via Settings UI.
 
 	context.subscriptions.push(onchangeDisposable);
 }

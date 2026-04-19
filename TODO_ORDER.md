@@ -82,13 +82,13 @@
 
 | # | TODO | File | Status |
 |---|---|---|---|
-| 15 | **1.6 #1** — Update status bar to show `⚡ +Xpts 🔥Yd` live | `extension/src/extension.ts` | ⬜ Todo |
-| 16 | **1.3 #4** — Fetch streak from `GET /users/:id/streak` on activation | `extension/src/extension.ts` | ⬜ Todo |
-| 17 | **1.4 #2** — Wrap flush with offline queue drain | `extension/src/extension.ts` | ⬜ Todo |
-| 18 | **1.6 #2** — Register settings in `extension/package.json` | `extension/package.json` | ⬜ Todo |
-| 19 | **1.6 #4** — Register `devverse.showStats` Webview command | `extension/src/extension.ts` | ⬜ Todo |
+| 15 | **1.6 #1** — Update status bar to show `⚡ +Xpts 🔥Yd` live | `extension/src/extension.ts` | ✅ Done |
+| 16 | **1.3 #4** — Fetch streak from `GET /users/:id/streak` on activation | `extension/src/extension.ts` | ✅ Done |
+| 17 | **1.4 #2** — Wrap flush with offline queue drain | `extension/src/extension.ts` | ✅ Done |
+| 18 | **1.6 #2** — Register settings in `extension/package.json` | `extension/package.json` | ✅ Done |
+| 19 | **1.6 #4** — Register `devverse.showStats` Webview command | `extension/src/extension.ts` | ✅ Done |
 
-*Items 15–19 are parallel once their dependencies are met. 16 needs Group 3 step 8. 17 needs Group 3 step 7.*
+> Group 6 fully complete. Key fixes: `lastKnownStreak` variable seeds new sessions correctly; offline queue push-then-drain pattern in `flushSession`; `devverse.showStats` command registered (was wrongly `devverse.statsPanel`) with inline Terminal Operator HTML; `package.json` gains `devverse.showStats` command + three configuration properties.
 
 ---
 

@@ -18,8 +18,34 @@
       {
         "command": "devverse.login",
         "title": "DevVerse: Login with GitHub"
+      },
+      {
+        "command": "devverse.showStats",
+        "title": "DevVerse: Show Session Stats"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "DevVerse",
+      "properties": {
+        "devverse.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable DevVerse activity tracking."
+        },
+        "devverse.minSessionGapMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Minutes of inactivity before a coding session is considered ended and flushed."
+        },
+        "devverse.languageMultipliers": {
+          "type": "object",
+          "default": {},
+          "description": "Override the points multiplier per language ID (e.g. { \"go\": 2.0 }). Merged over the built-in defaults."
+        }
+      }
+    }
   },
   "capabilities": {
     "authentication": {
