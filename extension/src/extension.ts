@@ -4,18 +4,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-// TODO 1.2 #1: Add language multiplier map here.
-// Read values from vscode.workspace.getConfiguration('devverse').get('languageMultipliers')
-// so users can override them. Fallback defaults:
-//   systems (go, rust, c, cpp): 1.5
-//   backend (python, java, typescript, javascript): 1.2
-//   frontend (html, css, scss, svelte, vue): 1.0
-//   config/data (json, yaml, toml, xml): 0.5
-//   docs (markdown, plaintext): 0.3
-// Also register these in extension package.json under contributes.configuration.
-// const LANG_MULTIPLIERS: Record<string, number> = { ... };
-
-const LANG_MULTIPLIERS: Record<string, number> = {
+const DEFAULT_LANG_MULTIPLIERS: Record<string, number> = {
 	'go': 1.5,
 	'rust': 1.5,
 	'c': 1.5,
@@ -35,18 +24,12 @@ const LANG_MULTIPLIERS: Record<string, number> = {
 	'xml': 0.5,
 	'markdown': 0.3,
 	'plaintext': 0.3,
+};
+
+function getLangMultipliers(): Record<string, number> {
+	return vscode.workspace.getConfiguration('devverse').get<Record<string, number>>('languageMultipliers')
+		?? DEFAULT_LANG_MULTIPLIERS;
 }
-
-vscode.workspace.getConfiguration('devverse').get('languageMultipliers') ?? LANG_MULTIPLIERS;
-
-// TODO 1.3 #1: Define a SessionState interface to track the current coding session.
-// interface SessionState {
-//   startedAt: number;        // ms timestamp of first edit
-//   lastEditAt: number;       // ms timestamp of most recent edit
-//   languageBreakdown: Record<string, number>;  // languageId → weighted points accumulated
-//   totalPoints: number;      // running weighted total for this session
-//   streak: number;           // consecutive active days, fetched from backend on activation
-// }
 
 interface SessionState {
 	startedAt: number;		// ms timestamp of first edit
@@ -81,20 +64,34 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusBarItem.show();
 	context.subscriptions.push(statusBarItem);
 
-	// TODO 1.3 #2: Initialise session tracking variables here.
-	// let currentSession: SessionState | null = null;
-	// let sessionInactivityTimer: NodeJS.Timeout | undefined;
-	// const SESSION_GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
-
 	let currentSession: SessionState | null = null;
 	let sessionInactivityTimer: NodeJS.Timeout | undefined;
 	const SESSION_GAP_MS = (vscode.workspace.getConfiguration('devverse').get<number>('minSessionGapMinutes') ?? 5) * 60_000;
 	
-	// TODO 1.4 #1: Create helpers to read and write the offline flush queue.
-	// The queue lives at path.join(context.globalStorageUri.fsPath, 'flush-queue.json').
-	// Each entry: { userId: string; points: number; sessionId: string; timestamp: number }
-	// async function readQueue(): Promise<FlushEntry[]> { ... }
-	// async function writeQueue(q: FlushEntry[]): Promise<void> { ... }
+	const flushQueuePath = path.join(context.globalStorageUri.fsPath, 'flush-queue.json');
+	interface FlushEntry {
+		userId: string;
+		points: number;
+		sessionId: string;
+		timestamp: number;
+	}
+	async function readQueue(): Promise<FlushEntry[]> {
+		try {
+			const content = await vscode.workspace.fs.readFile(vscode.Uri.file(flushQueuePath)).then(buf => buf.toString());
+			return JSON.parse(content) as FlushEntry[];
+		} catch (e) {
+			console.error('Failed to read flush queue', e);
+			return [];
+		}
+	}
+	async function writeQueue(q: FlushEntry[]): Promise<void> {
+		try {
+			await vscode.workspace.fs.writeFile(vscode.Uri.file(flushQueuePath), Buffer.from(JSON.stringify(q, null, 2)));
+		} catch (e) {
+			console.error('Failed to write flush queue', e);
+			throw e;
+		}
+	}
 
 	// Function to authenticate with backend
 	async function authenticateWithBackend(session: vscode.AuthenticationSession) {

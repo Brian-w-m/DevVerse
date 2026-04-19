@@ -54,10 +54,12 @@
 
 | # | TODO | File | Status |
 |---|---|---|---|
-| 9 | **1.2 #1** — Add `LANG_MULTIPLIERS` map; wire to VS Code config | `extension/src/extension.ts` | ⬜ Todo |
-| 10 | **1.3 #1** — Define `SessionState` interface | `extension/src/extension.ts` | ⬜ Todo |
-| 11 | **1.3 #2** — Initialise `currentSession` and `sessionInactivityTimer` variables | `extension/src/extension.ts` | ⬜ Todo |
-| 12 | **1.4 #1** — Create `readQueue()` / `writeQueue()` offline buffer helpers | `extension/src/extension.ts` | ⬜ Todo |
+| 9 | **1.2 #1** — Add `LANG_MULTIPLIERS` map; wire to VS Code config | `extension/src/extension.ts` | ✅ Done |
+| 10 | **1.3 #1** — Define `SessionState` interface | `extension/src/extension.ts` | ✅ Done |
+| 11 | **1.3 #2** — Initialise `currentSession` and `sessionInactivityTimer` variables | `extension/src/extension.ts` | ✅ Done |
+| 12 | **1.4 #1** — Create `readQueue()` / `writeQueue()` offline buffer helpers | `extension/src/extension.ts` | ✅ Done |
+
+> Group 4 fully complete. Stale TODO comments removed. `LANG_MULTIPLIERS` refactored into `DEFAULT_LANG_MULTIPLIERS` + `getLangMultipliers()` so VS Code config overrides are actually applied.
 
 *Items 9–12 are parallel.*
 
