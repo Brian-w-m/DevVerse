@@ -16,7 +16,7 @@
 
 ---
 
-## Phase 1 — Extension: Consolidated Point Gaining
+## Phase 1 — Extension: Consolidated Point Gaining ✅ Done
 
 **Goal:** Make the extension the canonical, reliable source of coding activity data. Points should be richer, fairer, and more gameable in a good way.
 
