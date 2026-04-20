@@ -86,6 +86,21 @@ export default function Dashboard() {
   const [cardsVisible, setCardsVisible] = useState(false);
   const cardsRef = useRef<HTMLDivElement>(null);
 
+  function readGameSaveFromStorage(): GameSave | null {
+    try {
+      // `/game` now points to the Phaser implementation, so prefer its save key.
+      const rawPhaser = localStorage.getItem('devverse.game.phaser');
+      if (rawPhaser) return JSON.parse(rawPhaser) as GameSave;
+
+      // Back-compat fallback for older canvas saves.
+      const rawLegacy = localStorage.getItem('devverse.game');
+      if (rawLegacy) return JSON.parse(rawLegacy) as GameSave;
+    } catch {
+      // Ignore malformed storage data.
+    }
+    return null;
+  }
+
   // animated counters (trigger once cards section is visible)
   const scoreCount   = useCounter(stats?.score          ?? 0, cardsVisible, 1800);
   const todayCount   = useCounter(stats?.edits_today    ?? 0, cardsVisible, 1200);
@@ -93,13 +108,29 @@ export default function Dashboard() {
   const streakCount  = useCounter(stats?.current_streak ?? 0, cardsVisible, 900);
 
   useEffect(() => {
-    const id = localStorage.getItem('devverse.userId');
+    const id = localStorage.getItem('devverse.userId') ?? '111062353';
     if (id) setUserId(id);
-    try {
-      const raw = localStorage.getItem('devverse.game');
-      if (raw) setGameSave(JSON.parse(raw) as GameSave);
-    } catch { /* no save */ }
+    setGameSave(readGameSaveFromStorage());
     setTimeout(() => setMounted(true), 80);
+  }, []);
+
+  // Keep Pixel Quest card in sync after playing `/game` in another tab/window.
+  useEffect(() => {
+    const refresh = () => setGameSave(readGameSaveFromStorage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'devverse.game.phaser' || e.key === 'devverse.game') refresh();
+    };
+    const onVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   useEffect(() => {

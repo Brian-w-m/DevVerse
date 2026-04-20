@@ -62,7 +62,7 @@ export default function Home() {
   // ── boot animations + parallax setup ────────────────────────────────────
   useEffect(() => {
     localStorage.setItem('devverse.jwt', 'mock-jwt-token');
-    localStorage.setItem('devverse.userId', 'dev-user-001');
+    localStorage.setItem('devverse.userId', '111062353');
     setIsLoggedIn(true);
 
     const target = 4250, duration = 1800, start = Date.now();
@@ -551,7 +551,7 @@ export default function Home() {
                   <button
                     onClick={() => {
                       localStorage.setItem('devverse.jwt', 'mock-jwt-token');
-                      localStorage.setItem('devverse.userId', 'dev-user-001');
+                      localStorage.setItem('devverse.userId', '111062353');
                       setIsLoggedIn(true);
                     }}
                     className="mag f-disp font-bold tracking-wider px-7 py-3 bg-emerald-500 text-black text-sm"
