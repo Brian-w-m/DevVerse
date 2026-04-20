@@ -193,6 +193,24 @@ func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig
 		c.JSON(http.StatusOK, gin.H{"streak": streak})
 	})
 
+	// /users/:id/activity is intentionally public — see registerPublicUserRoutes
+
+	r.DELETE("/users/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		if err := userService.DeleteUser(c.Request.Context(), id); err != nil {
+			logger.Errorf("failed to delete user: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
+			return
+		}
+
+		c.JSON(http.StatusNoContent, nil)
+	})
+}
+
+// registerPublicUserRoutes registers endpoints that don't require auth (dev convenience until Phase 5).
+func registerPublicUserRoutes(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig.Config, logger *utils.Logger) {
+	sessionService := services.NewSessionService(dynamodbClient, cfg.SessionsTable, cfg.DailyActivityTable)
+
 	r.GET("/users/:id/activity", func(c *gin.Context) {
 		id := c.Param("id")
 		days := c.Query("days")
@@ -215,16 +233,5 @@ func registerUsers(r gin.IRoutes, dynamodbClient *dynamodb.Client, cfg appconfig
 			return
 		}
 		c.JSON(http.StatusOK, activity)
-	})
-
-	r.DELETE("/users/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		if err := userService.DeleteUser(c.Request.Context(), id); err != nil {
-			logger.Errorf("failed to delete user: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
-			return
-		}
-
-		c.JSON(http.StatusNoContent, nil)
 	})
 }
