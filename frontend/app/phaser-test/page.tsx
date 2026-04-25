@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import type { GS, Item, Enemy, Player, Combat, Dialogue } from './types';
+import type { GS, Item, Enemy, Player, Combat, Dialogue, AreaId } from './types';
 import {
   ITEMS, ENEMY_DEFS, NPCS, PORTALS, GET_TILE, AREA_NAMES,
-  ENEMY_POOL, ENEMY_COUNT, GW, GH, TS, CW, CH,
+  ENEMY_POOL, ENEMY_COUNT, GW, GH, TS, VW, VH,
 } from './gameData';
 
 // PhaserCanvas uses dynamic import internally, but ssr:false here as an extra guard
 const PhaserCanvas = dynamic(() => import('./PhaserCanvas'), {
   ssr: false,
   loading: () => (
-    <div style={{ width: CW, height: CH, background: '#0a120a' }}
+    <div style={{ width: VW, height: VH, background: '#0a120a' }}
       className="flex items-center justify-center">
       <span className="text-emerald-600 text-xs tracking-widest animate-pulse">LOADING ENGINE...</span>
     </div>
@@ -42,6 +42,63 @@ function spawnEnemies(area: 'town'|'forest'|'dungeon'): Enemy[] {
     taken.add(`${x},${y}`);
     out.push({ uid:`${area}_${defId}_${i}`, def, hp:def.hp, x, y, area });
   }
+  return out;
+}
+
+function isBlocked(area: AreaId, x: number, y: number) {
+  if (x < 0 || x >= GW || y < 0 || y >= GH) return true;
+  const tile = GET_TILE[area](x, y);
+  return ['wall', 'tree', 'stone', 'water', 'portal'].includes(tile);
+}
+
+function findAnyWalkable(area: AreaId, occupied?: Set<string>) {
+  for (let y = 1; y < GH - 1; y++) {
+    for (let x = 1; x < GW - 1; x++) {
+      const key = `${x},${y}`;
+      if (!isBlocked(area, x, y) && !(occupied?.has(key))) return { x, y };
+    }
+  }
+  return { x: 1, y: 1 };
+}
+
+function findNearestWalkable(area: AreaId, sx: number, sy: number, occupied?: Set<string>) {
+  for (let r = 0; r <= Math.max(GW, GH); r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+        const x = sx + dx, y = sy + dy;
+        const key = `${x},${y}`;
+        if (!isBlocked(area, x, y) && !(occupied?.has(key))) return { x, y };
+      }
+    }
+  }
+  return findAnyWalkable(area, occupied);
+}
+
+function sanitizeLoadedEnemies(savedEnemies: Enemy[]) {
+  const out: Enemy[] = [];
+  const occupiedByArea: Record<AreaId, Set<string>> = {
+    town: new Set<string>(),
+    forest: new Set<string>(),
+    dungeon: new Set<string>(),
+  };
+  // Reserve NPC tiles so enemies never overlap NPCs.
+  NPCS.forEach(n => occupiedByArea[n.area].add(`${n.x},${n.y}`));
+
+  for (const e of savedEnemies) {
+    const area = e.area;
+    const occupied = occupiedByArea[area];
+    let x = e.x;
+    let y = e.y;
+    if (isBlocked(area, x, y) || occupied.has(`${x},${y}`)) {
+      const p = findNearestWalkable(area, x, y, occupied);
+      x = p.x;
+      y = p.y;
+    }
+    occupied.add(`${x},${y}`);
+    out.push({ ...e, x, y });
+  }
+
   return out;
 }
 
@@ -97,8 +154,16 @@ export default function PhaserGamePage() {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<GS>;
-        if (saved.player)      gsRef.current.player      = saved.player;
-        if (saved.enemies)     gsRef.current.enemies     = saved.enemies;
+        if (saved.player) {
+          gsRef.current.player = saved.player;
+          // Map layout changed over time; keep player out of blocked tiles.
+          if (isBlocked(gsRef.current.player.area, gsRef.current.player.x, gsRef.current.player.y)) {
+            const p = findNearestWalkable(gsRef.current.player.area, gsRef.current.player.x, gsRef.current.player.y);
+            gsRef.current.player.x = p.x;
+            gsRef.current.player.y = p.y;
+          }
+        }
+        if (saved.enemies) gsRef.current.enemies = sanitizeLoadedEnemies(saved.enemies);
         if (saved.defeatedIds) gsRef.current.defeatedIds = saved.defeatedIds;
         if (saved.msgs)        gsRef.current.msgs        = saved.msgs;
       }
@@ -455,7 +520,14 @@ export default function PhaserGamePage() {
 
           {/* ── PHASER CANVAS + OVERLAYS ── */}
           <div className="relative flex-shrink-0 self-start"
-            style={{ width: CW, height: CH, border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 0 40px rgba(16,185,129,0.07), inset 0 0 0 1px rgba(255,255,255,0.03)' }}>
+            style={{
+              width: VW,
+              height: VH,
+              boxShadow: '0 0 56px rgba(16,185,129,0.42)',
+              outline: '4px solid #162235',
+              outlineOffset: 0,
+            }}>
+            <div className="relative" style={{ width: VW, height: VH, overflow: 'hidden', background: '#050810' }}>
 
             <PhaserCanvas gsRef={gsRef} />
 
@@ -611,10 +683,11 @@ export default function PhaserGamePage() {
                 )}
               </div>
             )}
+            </div>
           </div>
 
           {/* ── RIGHT SIDEBAR ── */}
-          <div className="flex flex-col gap-2 w-52 overflow-y-auto flex-shrink-0" style={{ maxHeight: CH }}>
+          <div className="flex flex-col gap-2 w-52 overflow-y-auto flex-shrink-0" style={{ maxHeight: VH }}>
 
             {/* Player stats */}
             <div className="side-card c-emerald p-3">

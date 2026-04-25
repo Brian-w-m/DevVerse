@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { GS, AreaId } from './types';
-import { GW, GH, TS, CW, CH, PORTALS, NPCS, GET_TILE } from './gameData';
+import { GW, GH, TS, CW, CH, VW, VH, PORTALS, NPCS, GET_TILE } from './gameData';
 
 // Tile hex colours (mirroring the original TC palette)
 const TC: Record<string, [number, number]> = {
@@ -139,6 +139,8 @@ export default function PhaserCanvas({ gsRef }: Props) {
           }).setDepth(11);
 
           this.cameras.main.setBounds(0, 0, CW, CH);
+          // Follow player and clamp at world bounds.
+          this.cameras.main.startFollow(this.playerContainer, true, 0.2, 0.2);
         }
 
         // ── Map rebuild (on area change) ───────────────────────────────────
@@ -297,8 +299,8 @@ export default function PhaserCanvas({ gsRef }: Props) {
 
       gameRef.current = new Phaser.Game({
         type: Phaser.AUTO,
-        width: CW,
-        height: CH,
+        width: VW,
+        height: VH,
         backgroundColor: '#0a120a',
         parent: el,
         scene: GameScene,
@@ -315,5 +317,5 @@ export default function PhaserCanvas({ gsRef }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={containerRef} style={{ lineHeight: 0, width: CW, height: CH }} />;
+  return <div ref={containerRef} style={{ lineHeight: 0, width: VW, height: VH }} />;
 }
