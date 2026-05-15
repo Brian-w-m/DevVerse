@@ -12,7 +12,7 @@ import {
 const PhaserCanvas = dynamic(() => import('./PhaserCanvas'), {
   ssr: false,
   loading: () => (
-    <div style={{ width: VW, height: VH, background: '#0a120a' }}
+    <div style={{ width: '100%', height: '100%', background: '#0a120a' }}
       className="flex items-center justify-center">
       <span className="text-emerald-600 text-xs tracking-widest animate-pulse">LOADING ENGINE...</span>
     </div>
@@ -140,7 +140,7 @@ export default function PhaserGamePage() {
   const rerender = useCallback(() => setTick(n => n+1), []);
 
   function gs() { return gsRef.current; }
-  function addMsg(msg: string) { gsRef.current.msgs = [msg, ...gsRef.current.msgs].slice(0, 10); }
+  function addMsg(msg: string) { gsRef.current.msgs = [msg, ...gsRef.current.msgs].slice(0, 50); }
 
   function saveGame() {
     const { player, enemies, defeatedIds, msgs } = gsRef.current;
@@ -515,11 +515,11 @@ export default function PhaserGamePage() {
       </nav>
 
       {/* ── MAIN CONTENT ── */}
-      <div className="relative z-10 flex-1 flex items-center justify-center p-1 min-h-0">
-        <div className="flex gap-3 items-start">
+      <div className="relative z-10 flex-1 flex items-center justify-center p-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col xl:flex-row gap-3 items-start" style={{ maxWidth: VW + 208 + 12 }}>
 
           {/* ── PHASER CANVAS + OVERLAYS ── */}
-          <div className="relative flex-shrink-0 self-start"
+          <div className="relative flex-shrink-0"
             style={{
               width: VW,
               height: VH,
@@ -527,7 +527,7 @@ export default function PhaserGamePage() {
               outline: '4px solid #162235',
               outlineOffset: 0,
             }}>
-            <div className="relative" style={{ width: VW, height: VH, overflow: 'hidden', background: '#050810' }}>
+            <div className="relative" style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#050810' }}>
 
             <PhaserCanvas gsRef={gsRef} />
 
@@ -687,10 +687,10 @@ export default function PhaserGamePage() {
           </div>
 
           {/* ── RIGHT SIDEBAR ── */}
-          <div className="flex flex-col gap-2 w-52 overflow-y-auto flex-shrink-0" style={{ maxHeight: VH }}>
+          <div className="flex flex-col gap-2 flex-shrink-0 overflow-hidden" style={{ width: 208, height: VH }}>
 
             {/* Player stats */}
-            <div className="side-card c-emerald p-3">
+            <div className="side-card c-emerald p-3 flex-shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <span className="font-display font-bold text-white text-sm tracking-wide">HERO</span>
                 <span className="font-display font-bold text-emerald-400 text-sm">LV.{player.level}</span>
@@ -726,7 +726,7 @@ export default function PhaserGamePage() {
             </div>
 
             {/* Equipment */}
-            <div className="side-card c-orange p-3">
+            <div className="side-card c-orange p-3 flex-shrink-0">
               <div className="label text-slate-500 mb-2">EQUIPMENT</div>
               {[
                 { label:'WEAPON', item:player.weapon, color:'text-orange-400' },
@@ -742,15 +742,15 @@ export default function PhaserGamePage() {
               ))}
             </div>
 
-            {/* Bag — no overflow-hidden (it clipped the list). Item list scrolls inside a capped region. */}
-            <div className="side-card c-violet flex flex-col min-h-0">
+            {/* Bag — grows when open; item list scrolls inside allocated flex space */}
+            <div className={`side-card c-violet flex flex-col ${showBag ? 'flex-1 min-h-[160px]' : 'flex-shrink-0'}`}>
               <button onClick={() => { gsRef.current.showBag = !showBag; rerender(); }}
                 className="w-full p-2.5 flex items-center justify-between hover:bg-white/[0.03] transition cursor-pointer flex-shrink-0">
                 <span className="label text-slate-400">BAG ({player.bag.length} items)</span>
                 <span className="label text-slate-600">{showBag ? '▲' : '▼'}</span>
               </button>
               {showBag && (
-                <div className="border-t border-white/[0.06] max-h-[min(280px,45vh)] overflow-y-auto overscroll-contain">
+                <div className="border-t border-white/[0.06] flex-1 min-h-0 overflow-y-auto overscroll-contain">
                   {player.bag.length === 0
                     ? <p className="text-xs text-slate-700 italic p-2.5">Empty</p>
                     : player.bag.map((item, i) => (
@@ -768,17 +768,17 @@ export default function PhaserGamePage() {
               )}
             </div>
 
-            {/* Activity log */}
-            <div className="side-card c-amber p-3 flex-1">
-              <div className="label text-slate-600 mb-2">ACTIVITY LOG</div>
-              <div className="space-y-1">
-                {msgs.slice(0,8).map((msg,i)=>(
+            {/* Activity log — compact while bag is open so bag can use sidebar height */}
+            <div className={`side-card c-amber flex flex-col ${showBag ? 'flex-shrink-0 max-h-28' : 'flex-1 min-h-0'}`}>
+              <div className="label text-slate-600 p-3 pb-2 flex-shrink-0">ACTIVITY LOG</div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pb-3 space-y-1">
+                {msgs.map((msg,i)=>(
                   <div key={i} className={`text-[11px] leading-relaxed ${i===0?'text-slate-300':'text-slate-700'}`}>{msg}</div>
                 ))}
               </div>
             </div>
 
-            <div className="label text-slate-700 text-center pb-1">A DEVVERSE PIXEL RPG</div>
+            <div className="label text-slate-700 text-center pb-1 flex-shrink-0">A DEVVERSE PIXEL RPG</div>
           </div>
         </div>
       </div>

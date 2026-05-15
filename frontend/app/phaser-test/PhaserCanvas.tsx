@@ -304,6 +304,10 @@ export default function PhaserCanvas({ gsRef }: Props) {
         backgroundColor: '#0a120a',
         parent: el,
         scene: GameScene,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
         // Disable Phaser's own input — React handles keyboard
         input: { keyboard: false, mouse: false, touch: false },
       });
@@ -317,5 +321,5 @@ export default function PhaserCanvas({ gsRef }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={containerRef} style={{ lineHeight: 0, width: VW, height: VH }} />;
+  return <div ref={containerRef} style={{ lineHeight: 0, width: '100%', height: '100%' }} />;
 }
